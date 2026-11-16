@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1720">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Alertas Lab">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<title>Alertas Lab · Celular</title>
+<style>
+  :root{--bg:#0f1720;--card:#18222e;--line:#2a3746;--text:#e8edf2;--muted:#93a1b0;--ok:#22c55e;--bad:#ef4444;--warn:#f59e0b}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font:16px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  body{padding:env(safe-area-inset-top) 16px calc(16px + env(safe-area-inset-bottom))}
+  header{display:flex;align-items:center;justify-content:space-between;padding:14px 0 10px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px}
+  .brand img{width:30px;height:30px;border-radius:8px}
+  .chip{font-size:12.5px;padding:4px 10px;border-radius:999px;background:#253241;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .chip i{width:8px;height:8px;border-radius:50%;background:#64748b;display:inline-block}
+  .chip.on i{background:var(--ok)} .chip.on{color:#c9f2d6}
+  .chip.err i{background:var(--warn)}
+  h1{font-size:22px;margin:18px 0 6px}
+  p{color:var(--muted);line-height:1.45;margin:6px 0}
+  label{display:block;font-size:13px;color:var(--muted);margin:18px 0 6px}
+  input{width:100%;font:16px ui-monospace,Consolas,monospace;padding:12px;border-radius:10px;border:1px solid var(--line);background:#0b121a;color:var(--text)}
+  button{font:inherit;cursor:pointer;border:none;border-radius:12px;padding:14px 16px;font-weight:600}
+  .primary{width:100%;margin-top:16px;background:#2563eb;color:#fff;font-size:17px}
+  .ghost{background:#253241;color:var(--text)}
+  .row{display:flex;gap:10px;margin-top:12px}
+  .row button{flex:1}
+  .note{font-size:13px;background:#1b2633;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:16px;color:var(--muted);line-height:1.45}
+  .status{border-radius:16px;padding:22px 18px;margin-top:8px;text-align:center;background:#123222;border:1px solid #1f5a39}
+  .status.bad{background:#3a1416;border-color:#7f1d1d}
+  .status .big{font-size:26px;font-weight:800;margin:4px 0}
+  .status .sub{color:var(--muted);font-size:14px}
+  h2{font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:22px 0 8px}
+  .list{display:flex;flex-direction:column;gap:8px}
+  .item{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;gap:10px}
+  .item .ic{font-size:20px;line-height:1.2}
+  .item b{display:block;font-size:15px}
+  .item span{color:var(--muted);font-size:13.5px}
+  .empty{color:var(--muted);font-size:14px;text-align:center;padding:16px}
+  .foot{margin-top:22px;font-size:12.5px;color:var(--muted);text-align:center}
+  .foot a{color:#8ab4ff}
+  [hidden]{display:none!important}
+  .alarm{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;background:#7f1d1d;animation:flash .7s infinite}
+  @keyframes flash{0%,100%{background:#7f1d1d}50%{background:#dc2626}}
+  .alarm .icon{font-size:72px}
+  .alarm .t{font-size:28px;font-weight:800;margin:10px 0 6px}
+  .alarm .m{font-size:18px;opacity:.95}
+  .alarm .h{font-size:14px;opacity:.8;margin-top:6px}
+  .alarm button{margin-top:30px;background:#fff;color:#7f1d1d;font-size:19px;padding:16px 40px;border-radius:999px}
+  .toast{position:fixed;left:16px;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));background:#14532d;border:1px solid #22c55e;color:#dcfce7;border-radius:12px;padding:12px 14px;font-weight:600;z-index:9}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><img src="icon-192.png" alt="">Alertas Lab</div>
+  <div class="chip" id="chip"><i></i><span id="chipTxt">Desconectado</span></div>
+</header>
+
+<section id="setup">
+  <h1>Celular del responsable</h1>
+  <p>Esta página recibe las alertas del simulador de cámaras de niebla salina: suena la sirena, vibra y muestra la alerta en pantalla.</p>
+  <label for="topic">Topic de ntfy (el que muestra la demo)</label>
+  <input id="topic" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="niebla-g4-xxxxxxxx">
+  <button class="primary" id="btnStart">Activar alertas</button>
+  <div class="note">
+    · Dejá esta página <b>abierta y adelante</b>: el sistema corta las páginas en segundo plano.<br>
+    · En iPhone, sacá el <b>modo silencio</b> (el interruptor lateral) o no se escucha la sirena.<br>
+    · Para usarla como app: menú del navegador → <b>Agregar a pantalla de inicio</b>.
+  </div>
+</section>
+
+<section id="live" hidden>
+  <div class="status" id="status">
+    <div class="sub">Estado del laboratorio</div>
+    <div class="big" id="stBig">Todo en rango</div>
+    <div class="sub" id="stSub">Esperando alertas…</div>
+  </div>
+  <div class="row">
+    <button class="ghost" id="btnTest">Probar sirena</button>
+    <button class="ghost" id="btnMute">Silenciar</button>
+  </div>
+  <h2>Notificaciones</h2>
+  <div class="list" id="list"><div class="empty">Todavía no llegó ninguna.</div></div>
+  <div class="foot">Topic <b id="topicLbl"></b> · <a href="#" id="btnChange">cambiar</a></div>
+</section>
+
+<div class="alarm" id="alarm" hidden>
+  <div class="icon">🚨</div>
+  <div class="t" id="alT"></div>
+  <div class="m" id="alM"></div>
+  <div class="h" id="alH"></div>
+  <button id="btnAck">Silenciar</button>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const store = {
+  get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } },
+  set(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
+};
+const qs = new URLSearchParams(location.search);
+let topic = (qs.get('t') || store.get('topic') || '').trim();
+$('topic').value = topic;
+
+let es=null, actx=null, osc=null, gain=null, sirenIv=null, vibIv=null, stopTo=null, wake=null;
+const active = new Set();           // cámaras con alerta abierta
+const items = [];
+
+// ---------- Audio ----------
+function unlockAudio(){
+  actx = actx || new (window.AudioContext||window.webkitAudioContext)();
+  if (actx.state==='suspended') actx.resume();
+  // un sonido inaudible para habilitar el audio en iOS
+  const o=actx.createOscillator(), g=actx.createGain(); g.gain.value=0.0001; o.connect(g).connect(actx.destination); o.start(); o.stop(actx.currentTime+0.05);
+}
+function sirenOn(){
+  if (!actx || sirenIv) return;
+  if (actx.state==='suspended') actx.resume();
+  osc=actx.createOscillator(); gain=actx.createGain(); gain.gain.value=0.35; osc.type='sawtooth';
+  osc.connect(gain).connect(actx.destination); osc.start();
+  let hi=true; sirenIv=setInterval(()=>{ osc.frequency.setValueAtTime(hi?880:660, actx.currentTime); hi=!hi; }, 280);
+  if (navigator.vibrate){ navigator.vibrate([600,250,600,250,600]); vibIv=setInterval(()=>navigator.vibrate([600,250,600,250,600]), 2600); }
+  clearTimeout(stopTo); stopTo=setTimeout(sirenOff, 60000);
+}
+function sirenOff(){
+  if (sirenIv){ clearInterval(sirenIv); sirenIv=null; try{ osc.stop(); }catch(e){} osc=null; }
+  if (vibIv){ clearInterval(vibIv); vibIv=null; }
+  if (navigator.vibrate) navigator.vibrate(0);
+  clearTimeout(stopTo);
+}
+function chime(){
+  if (!actx) return;
+  [[784,0],[1047,0.16]].forEach(([f,t])=>{ const o=actx.createOscillator(), g=actx.createGain();
+    o.frequency.value=f; g.gain.setValueAtTime(0.25, actx.currentTime+t); g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime+t+0.35);
+    o.connect(g).connect(actx.destination); o.start(actx.currentTime+t); o.stop(actx.currentTime+t+0.4); });
+  if (navigator.vibrate) navigator.vibrate(150);
+}
+
+// ---------- Pantalla encendida ----------
+async function keepAwake(){
+  try { if ('wakeLock' in navigator && document.visibilityState==='visible') wake = await navigator.wakeLock.request('screen'); } catch(e){}
+}
+document.addEventListener('visibilitychange', ()=>{ if (document.visibilityState==='visible' && es) keepAwake(); });
+
+// ---------- Conexión con ntfy (SSE) ----------
+function chip(state, txt){ $('chip').className='chip '+state; $('chipTxt').textContent=txt; }
+function connect(){
+  if (es) es.close();
+  chip('', 'Conectando…');
+  es = new EventSource(`https://ntfy.sh/${encodeURIComponent(topic)}/sse`);
+  es.addEventListener('open', ()=>chip('on','Conectado'));
+  es.onopen = ()=>chip('on','Conectado');
+  es.onerror = ()=>chip('err','Reconectando…');
+  es.onmessage = e => { try { const m=JSON.parse(e.data); if (m.event==='message') handle(m); } catch(err){} };
+}
+
+// ---------- Mensajes ----------
+const camOf = s => { const m=/C[aá]mara\s*(\d)/i.exec(s||''); return m ? m[1] : null; };
+function handle(m){
+  const title = m.title || 'Alerta', msg = m.message || '';
+  const tags = m.tags || [];
+  const isAlert = (m.priority||3) >= 4 || tags.includes('rotating_light');
+  const hora = new Date((m.time||Date.now()/1000)*1000).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  items.unshift({title, msg, hora, isAlert});
+  const cam = camOf(title);
+  if (isAlert){ if (cam) active.add(cam); showAlarm(title, msg, hora); notify(title, msg); }
+  else { if (cam) active.delete(cam); toast(`✅ ${title}`); chime(); notify(title, msg); }
+  render();
+}
+function showAlarm(t, m, h){
+  $('alT').textContent=t; $('alM').textContent=m; $('alH').textContent=`Recibida a las ${h}`;
+  $('alarm').hidden=false; sirenOn();
+}
+function ack(){ $('alarm').hidden=true; sirenOff(); }
+let toastTo=null;
+function toast(t){ $('toast').textContent=t; $('toast').hidden=false; clearTimeout(toastTo); toastTo=setTimeout(()=>$('toast').hidden=true, 4000); }
+async function notify(title, body){
+  if (document.visibilityState==='visible') return;
+  try {
+    if (Notification.permission!=='granted') return;
+    const reg = await navigator.serviceWorker?.getRegistration();
+    if (reg) reg.showNotification(title, {body, icon:'icon-192.png', badge:'icon-192.png', vibrate:[600,250,600], tag:'alerta-lab', renotify:true, requireInteraction:true});
+    else new Notification(title, {body, icon:'icon-192.png'});
+  } catch(e){}
+}
+function render(){
+  const bad = active.size>0;
+  $('status').className = 'status' + (bad?' bad':'');
+  $('stBig').textContent = bad ? `Alerta en Cámara ${[...active].sort().join(', ')}` : 'Todo en rango';
+  $('stSub').textContent = bad ? 'Revisar el laboratorio' : (items.length ? `Última novedad: ${items[0].hora}` : 'Esperando alertas…');
+  $('list').innerHTML = items.length ? items.slice(0,30).map(i=>`<div class="item"><div class="ic">${i.isAlert?'🚨':'✅'}</div><div><b>${esc(i.title)}</b><span>${esc(i.msg)}</span><br><span>${i.hora}</span></div></div>`).join('') : '<div class="empty">Todavía no llegó ninguna.</div>';
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// ---------- Inicio ----------
+async function start(){
+  const v = $('topic').value.trim().replace(/[^A-Za-z0-9_-]/g,'');
+  if (!v){ $('topic').focus(); return; }
+  topic=v; store.set('topic', topic);
+  unlockAudio();
+  try { if ('Notification' in window && Notification.permission==='default') await Notification.requestPermission(); } catch(e){}
+  keepAwake();
+  $('setup').hidden=true; $('live').hidden=false; $('topicLbl').textContent=topic;
+  history.replaceState(null,'',`?t=${encodeURIComponent(topic)}`);
+  connect(); render();
+}
+$('btnStart').onclick = start;
+$('btnAck').onclick = ack;
+$('btnMute').onclick = ack;
+$('btnTest').onclick = ()=>{ unlockAudio(); showAlarm('Prueba de sirena','Así va a sonar una alerta del laboratorio', new Date().toLocaleTimeString('es-AR')); };
+$('btnChange').onclick = e => { e.preventDefault(); if (es) es.close(); es=null; chip('','Desconectado'); $('live').hidden=true; $('setup').hidden=false; };
+
+if ('serviceWorker' in navigator && location.protocol!=='file:') navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>

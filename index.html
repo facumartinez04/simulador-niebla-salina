@@ -1030,7 +1030,15 @@ function winContent(d, tab){
       <div class="row"><span>Topic</span><span><input value="${esc(n.topic)}" onchange="ntfyTopic(this.value)" style="font-family:var(--mono);font-size:14px;width:230px;padding:2px 4px"> <button class="tb" onclick="ntfyNewTopic()">Nuevo</button></span></div>
       ${row('Último envío',n.last)}
     </div>
-    <div class="grp"><h4>Preparar el celular (una sola vez)</h4>
+    <div class="grp"><h4>Opción A · Web app del celular (sin instalar nada)</h4>
+      <div style="display:flex;gap:12px;align-items:center">
+        <div id="qrBox" style="width:132px;height:132px;flex:none;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;background:#fff">${qrImg(phoneUrl())}</div>
+        <div style="font-size:12.5px;line-height:1.5">Escaneá el QR con el celular (o abrí el link), tocá <b>Activar alertas</b> y dejá la página abierta.<br>
+          <a href="${esc(phoneUrl())}" target="_blank" rel="noopener" class="mono" style="word-break:break-all">${esc(phoneUrl())}</a><br>
+          <span style="color:var(--muted)">Desde el menú del navegador se puede agregar a la pantalla de inicio como app.</span></div>
+      </div>
+    </div>
+    <div class="grp"><h4>Opción B · App ntfy (suena aunque el celular esté bloqueado)</h4>
       <ol style="margin:0;padding-left:18px;line-height:1.6;font-size:12.5px">
         <li>Instalá la app <b>ntfy</b> (Play Store o App Store).</li>
         <li>Tocá <b>+</b> y suscribite al topic <b class="mono">${esc(n.topic)}</b> en el servidor ntfy.sh.</li>
@@ -1104,6 +1112,26 @@ function ntfyTopic(v){
   if (!v) return;
   S.ntfy.topic=v; try { localStorage.setItem('ntfyTopic', v); } catch(e){}
   ui();
+}
+function phoneUrl(){
+  const base = location.protocol==='file:' ? 'https://TU-DOMINIO/' : location.href.replace(/[?#].*$/,'').replace(/[^\/]*$/,'');
+  return `${base}celular.html?t=${encodeURIComponent(S.ntfy.topic)}`;
+}
+// QR generado en el navegador (qrcodejs) y cacheado como imagen
+const QR={}; let qrLib=null;
+function qrImg(text){
+  if (QR[text]) return `<img src="${QR[text]}" width="124" height="124" alt="QR">`;
+  if (!qrLib){
+    qrLib = new Promise((ok,ko)=>{ const sc=document.createElement('script'); sc.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'; sc.onload=ok; sc.onerror=ko; document.head.appendChild(sc); });
+  }
+  qrLib.then(()=>{
+    if (QR[text]) return;
+    const tmp=document.createElement('div');
+    new QRCode(tmp,{text,width:248,height:248,correctLevel:QRCode.CorrectLevel.M});
+    const c=tmp.querySelector('canvas'); QR[text]= c ? c.toDataURL() : tmp.querySelector('img').src;
+    const box=$('qrBox'); if (box) box.innerHTML=`<img src="${QR[text]}" width="124" height="124" alt="QR">`;
+  }).catch(()=>{ const box=$('qrBox'); if (box) box.textContent='QR no disponible (sin internet)'; });
+  return '<span style="font-size:11px;color:#888">generando QR…</span>';
 }
 function ntfyNewTopic(){ ntfyTopic('niebla-g4-' + Math.random().toString(36).slice(2,10)); }
 function testGet(){

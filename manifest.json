@@ -1,0 +1,16 @@
+{
+  "name": "Alertas Lab · Cámaras de Niebla Salina",
+  "short_name": "Alertas Lab",
+  "description": "Recibe las alertas del simulador IoT: sirena, vibración y aviso en pantalla.",
+  "start_url": "celular.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f1720",
+  "theme_color": "#0f1720",
+  "lang": "es",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

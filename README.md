@@ -4,6 +4,7 @@ Grupo 4 · UAI · Redes y Teleprocesamiento.
 
 - `index.html`: demo estilo Packet Tracer (topología, modo simulación, PDU por capas OSI, CLI, endpoints de la API y push al celular por ntfy).
 - `original.html`: versión original del simulador.
+- `celular.html`: web app del celular del responsable (PWA). Recibe las alertas por ntfy, hace sonar la sirena y vibra. Se abre con el QR de la demo (ventana del celular → pestaña "Celular real (ntfy)").
 
 ## Deploy en Coolify
 
