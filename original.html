@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NET-EMU / Packet Tracer IoT · Monitoreo MQTT Cámaras de Niebla Salina (Grupo 4 - UAI)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b0f19;
+            color: #e2e8f0;
+            overflow-x: hidden;
+        }
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        /* Grid background style NET-EMU */
+        .canvas-grid {
+            background-color: #0d1322;
+            background-image: 
+                radial-gradient(rgba(56, 189, 248, 0.14) 1px, transparent 1px),
+                linear-gradient(to right, rgba(30, 41, 59, 0.35) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(30, 41, 59, 0.35) 1px, transparent 1px);
+            background-size: 24px 24px, 96px 96px, 96px 96px;
+        }
+        /* Siren pulse animation */
+        @keyframes siren-flash {
+            0%, 100% {
+                box-shadow: 0 0 15px rgba(239, 68, 68, 0.8), inset 0 0 15px rgba(239, 68, 68, 0.5);
+                border-color: #ef4444;
+                background-color: rgba(127, 29, 29, 0.65);
+            }
+            50% {
+                box-shadow: 0 0 38px rgba(239, 68, 68, 1), inset 0 0 25px rgba(239, 68, 68, 0.85);
+                border-color: #fca5a5;
+                background-color: rgba(185, 28, 28, 0.85);
+            }
+        }
+        .siren-active {
+            animation: siren-flash 0.65s infinite ease-in-out;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+        /* Range slider */
+        input[type=range] {
+            accent-color: #38bdf8;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col select-none">
+
+    <!-- BARRA SUPERIOR: ENCABEZADO ACADÉMICO + CONTROLES GLOBALES -->
+    <header class="bg-slate-900/95 border-b border-slate-800 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-40 backdrop-blur">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-sky-500/15 border border-sky-400/40 flex items-center justify-center text-sky-400 font-bold mono text-sm shadow-inner">
+                PT
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">Grupo 4 · UAI</span>
+                    <h1 class="text-sm md:text-base font-bold text-white tracking-tight">Monitoreo IoT de Cámaras de Niebla Salina (MQTT)</h1>
+                </div>
+                <p class="text-[11px] text-slate-400">Redes y Teleprocesamiento · Docente: Ing. Gabriel Fernández · Norma ASTM B117 / ISO 9227 (35 °C ± 2 °C)</p>
+            </div>
+        </div>
+
+        <!-- Controles principales de Simulación -->
+        <div class="flex flex-wrap items-center gap-2">
+            <!-- Estado Simulación -->
+            <div class="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-1 gap-1">
+                <button id="btnAutoPlay" onclick="toggleAutoPublish()" class="px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1.5 bg-emerald-600/25 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-600/40 transition">
+                    <span id="autoPlayDot" class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    <span id="autoPlayText">Auto-Telemetría: ON (4s)</span>
+                </button>
+                <button onclick="stepManualPublish()" class="px-2.5 py-1 rounded text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 transition" title="Forzar envío inmediato de lecturas">
+                    ⚡ Publicar Ahora
+                </button>
+            </div>
+
+            <!-- Selector TLS 1883 / 8883 -->
+            <div class="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-1">
+                <button id="btnPort1883" onclick="setSecurityMode(false)" class="px-2.5 py-1 rounded text-xs font-semibold mono transition bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    🔓 TCP:1883 (Claro)
+                </button>
+                <button id="btnPort8883" onclick="setSecurityMode(true)" class="px-2.5 py-1 rounded text-xs font-semibold mono transition text-slate-400 hover:text-slate-200">
+                    🔒 TLS:8883 (Cifrado)
+                </button>
+            </div>
+
+            <!-- Botón de Sonido de Sirena -->
+            <button id="btnSound" onclick="toggleSound()" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 transition flex items-center gap-1.5">
+                <span id="soundIcon">🔊</span> <span id="soundText">Audio Sirena</span>
+            </button>
+
+            <!-- Botón Reset -->
+            <button onclick="resetFullDemo()" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 transition">
+                🔄 Reiniciar
+            </button>
+        </div>
+    </header>
+
+    <!-- BARRA DE ESCENARIOS GUIADOS (LOS 5 PUNTOS DE LA DIAPOSITIVA 13) -->
+    <section class="bg-slate-900/60 border-b border-slate-800/80 px-4 py-2 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-sky-400 mono">Guion Demo en Vivo (Diap. 13):</span>
+        </div>
+        <div class="flex flex-wrap items-center gap-1.5 flex-1 justify-end">
+            <button onclick="runScenario(1)" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-500/15 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 transition flex items-center gap-1.5">
+                <span class="px-1.5 py-0.2 bg-indigo-500/30 rounded text-[10px] mono">1</span> Conexión (CONNECT/CONNACK)
+            </button>
+            <button onclick="runScenario(2)" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 transition flex items-center gap-1.5">
+                <span class="px-1.5 py-0.2 bg-emerald-500/30 rounded text-[10px] mono">2</span> Normal 35±2°C (QoS 0)
+            </button>
+            <button onclick="runScenario(3)" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-500/20 hover:bg-rose-500/35 text-rose-300 border border-rose-500/40 transition flex items-center gap-1.5 shadow-sm">
+                <span class="px-1.5 py-0.2 bg-rose-500/40 rounded text-[10px] mono">3</span> Falla Sábado 02 AM (39.5°C · QoS 1)
+            </button>
+            <button onclick="runScenario(4)" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/20 hover:bg-amber-500/35 text-amber-300 border border-amber-500/40 transition flex items-center gap-1.5">
+                <span class="px-1.5 py-0.2 bg-amber-500/40 rounded text-[10px] mono">4</span> Cortar Sensor 2 (Last Will "offline")
+            </button>
+            <button onclick="runScenario(5)" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-500/15 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 transition flex items-center gap-1.5">
+                <span class="px-1.5 py-0.2 bg-purple-500/30 rounded text-[10px] mono">5</span> Evento Registro (QoS 2 · 4 Pasos)
+            </button>
+        </div>
+    </section>
+
+    <!-- BANNER EXPLICATIVO DEL ESCENARIO ACTUAL -->
+    <div id="scenarioBanner" class="bg-sky-950/50 border-b border-sky-800/50 px-4 py-1.5 flex items-center justify-between text-xs">
+        <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 font-bold mono text-[11px]" id="bannerStepTag">MODO INTERACTIVO</span>
+            <span id="bannerStepText" class="text-slate-200 font-medium">Las 3 cámaras están publicando telemetría cada 4 segundos hacia el Broker MQTT en la VLAN 10 IoT. Tocá cualquier botón del guion arriba o mové la temperatura de una cámara.</span>
+        </div>
+        <span id="clockDisplay" class="mono text-slate-400 text-[11px] shrink-0 ml-2">Sáb 02:00:00</span>
+    </div>
+
+    <!-- ÁREA PRINCIPAL: LIENZO DE TOPOLOGÍA DE RED CON ANIMACIÓN DE PAQUETES -->
+    <main class="relative canvas-grid flex-1 min-h-[450px] p-4 flex flex-col justify-between overflow-hidden">
+        
+        <!-- SVG Overlay para cables de red y paquetes viajando -->
+        <svg id="networkSvg" class="absolute inset-0 w-full h-full pointer-events-none z-10"></svg>
+        <div id="packetsLayer" class="absolute inset-0 w-full h-full pointer-events-none z-20 overflow-hidden"></div>
+
+        <!-- GRILLA DE 4 COLUMNAS ARQUITECTURA IoT (Percepción -> Red -> Middleware -> Aplicación) -->
+        <div class="relative z-30 grid grid-cols-1 lg:grid-cols-12 gap-4 items-center my-auto">
+
+            <!-- COLUMNA 1: CAPA 1 PERCEPCIÓN (3 CÁMARAS DE NIEBLA SALINA) -->
+            <div class="lg:col-span-4 flex flex-col gap-3">
+                <div class="flex items-center justify-between px-1">
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-sky-400 mono">Capa 1 · Percepción (SBC-PT + Sonda)</span>
+                    <span class="text-[10px] mono text-slate-400 bg-slate-900/90 px-2 py-0.5 rounded border border-slate-800">Tolerancia: 33.0–37.0 °C</span>
+                </div>
+
+                <!-- Tarjetas de las 3 cámaras generadas dinámicamente o fijas para precisión de enlaces -->
+                <!-- CÁMARA 1 -->
+                <div id="node-cam1" class="bg-slate-900/95 border border-slate-700/80 rounded-xl p-3 shadow-lg transition-all">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-2">
+                            <span id="led-cam1" class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span>
+                            <div>
+                                <div class="flex items-center gap-1.5">
+                                    <h3 class="text-xs font-bold text-white">Cámara Niebla Salina #1</h3>
+                                    <span class="text-[10px] mono px-1.5 py-0.2 rounded bg-slate-800 text-sky-300 border border-slate-700">SBC-PT</span>
+                                </div>
+                                <p class="text-[10px] mono text-slate-400">IP: 192.168.10.11 · user: sensor1</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div id="temp-badge-cam1" class="text-lg font-bold mono px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                                35.2 °C
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Controles Cámara 1 -->
+                    <div class="flex items-center gap-2 bg-slate-950/90 p-2 rounded-lg border border-slate-800/80">
+                        <span class="text-[10px] mono text-slate-400">Temp:</span>
+                        <input id="slider-cam1" type="range" min="28" max="43" step="0.1" value="35.2" oninput="updateCamTemp(1, this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg cursor-pointer">
+                        <button onclick="setQuickTemp(1, 39.5)" class="px-1.5 py-0.5 rounded bg-rose-500/20 hover:bg-rose-500/35 text-rose-300 border border-rose-500/30 text-[10px] mono shrink-0" title="Forzar falla fuera de rango">
+                            🔥 39.5°
+                        </button>
+                        <button id="btn-cable-cam1" onclick="toggleCable(1)" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px] mono shrink-0" title="Cortar cable Ethernet para probar Last Will">
+                            🔌 Cortar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- CÁMARA 2 -->
+                <div id="node-cam2" class="bg-slate-900/95 border border-slate-700/80 rounded-xl p-3 shadow-lg transition-all">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-2">
+                            <span id="led-cam2" class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span>
+                            <div>
+                                <div class="flex items-center gap-1.5">
+                                    <h3 class="text-xs font-bold text-white">Cámara Niebla Salina #2</h3>
+                                    <span class="text-[10px] mono px-1.5 py-0.2 rounded bg-slate-800 text-sky-300 border border-slate-700">SBC-PT</span>
+                                </div>
+                                <p class="text-[10px] mono text-slate-400">IP: 192.168.10.12 · user: sensor2</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div id="temp-badge-cam2" class="text-lg font-bold mono px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                                34.8 °C
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Controles Cámara 2 -->
+                    <div class="flex items-center gap-2 bg-slate-950/90 p-2 rounded-lg border border-slate-800/80">
+                        <span class="text-[10px] mono text-slate-400">Temp:</span>
+                        <input id="slider-cam2" type="range" min="28" max="43" step="0.1" value="34.8" oninput="updateCamTemp(2, this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg cursor-pointer">
+                        <button onclick="setQuickTemp(2, 31.0)" class="px-1.5 py-0.5 rounded bg-sky-500/20 hover:bg-sky-500/35 text-sky-300 border border-sky-500/30 text-[10px] mono shrink-0" title="Forzar baja temperatura">
+                            ❄️ 31.0°
+                        </button>
+                        <button id="btn-cable-cam2" onclick="toggleCable(2)" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px] mono shrink-0" title="Cortar cable Ethernet para probar Last Will">
+                            🔌 Cortar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- CÁMARA 3 -->
+                <div id="node-cam3" class="bg-slate-900/95 border border-slate-700/80 rounded-xl p-3 shadow-lg transition-all">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-2">
+                            <span id="led-cam3" class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span>
+                            <div>
+                                <div class="flex items-center gap-1.5">
+                                    <h3 class="text-xs font-bold text-white">Cámara Niebla Salina #3</h3>
+                                    <span class="text-[10px] mono px-1.5 py-0.2 rounded bg-slate-800 text-sky-300 border border-slate-700">SBC-PT</span>
+                                </div>
+                                <p class="text-[10px] mono text-slate-400">IP: 192.168.10.13 · user: sensor3</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div id="temp-badge-cam3" class="text-lg font-bold mono px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                                35.1 °C
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Controles Cámara 3 -->
+                    <div class="flex items-center gap-2 bg-slate-950/90 p-2 rounded-lg border border-slate-800/80">
+                        <span class="text-[10px] mono text-slate-400">Temp:</span>
+                        <input id="slider-cam3" type="range" min="28" max="43" step="0.1" value="35.1" oninput="updateCamTemp(3, this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg cursor-pointer">
+                        <button onclick="setQuickTemp(3, 35.0)" class="px-1.5 py-0.5 rounded bg-emerald-500/20 hover:bg-emerald-500/35 text-emerald-300 border border-emerald-500/30 text-[10px] mono shrink-0">
+                            ✓ 35.0°
+                        </button>
+                        <button id="btn-cable-cam3" onclick="toggleCable(3)" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px] mono shrink-0">
+                            🔌 Cortar
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- COLUMNA 2: CAPA 2 RED (SWITCH VLAN 10 IoT + PARÁMETROS QoS) -->
+            <div class="lg:col-span-2 flex flex-col items-center justify-center gap-3">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-indigo-400 mono">Capa 2 · Red Lab</span>
+
+                <div id="node-switch" class="w-full bg-slate-900/95 border-2 border-indigo-500/50 rounded-xl p-3 text-center shadow-xl">
+                    <div class="w-10 h-10 mx-auto mb-1.5 rounded-lg bg-indigo-500/20 border border-indigo-400/40 flex items-center justify-center text-indigo-300 font-bold mono text-xs">
+                        SW-L2
+                    </div>
+                    <h3 class="text-xs font-bold text-white">Switch 2960-24TT</h3>
+                    <p class="text-[10px] mono text-indigo-300 mt-0.5">VLAN 10 · Exclusiva IoT</p>
+                    <div class="mt-2 pt-2 border-t border-slate-800 text-[10px] mono text-slate-400 space-y-1 text-left">
+                        <div class="flex justify-between"><span>DSCP Prioridad:</span><span class="text-emerald-400 font-semibold">CS3 / EF</span></div>
+                        <div class="flex justify-between"><span>Aislamiento:</span><span class="text-sky-300">ACL Activa</span></div>
+                        <div class="flex justify-between"><span>Pérdida Red:</span><span id="sw-loss-label" class="text-emerald-400">0%</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- COLUMNA 3: CAPA 3 MIDDLEWARE (BROKER MQTT MOSQUITTO) -->
+            <div class="lg:col-span-3 flex flex-col items-center justify-center gap-3">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-amber-400 mono">Capa 3 · Middleware</span>
+
+                <div id="node-broker" class="w-full bg-slate-900/95 border-2 border-amber-500/50 rounded-xl p-3.5 shadow-xl">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-2">
+                            <div class="w-9 h-9 rounded-lg bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-amber-300 font-bold mono text-xs">
+                                MQTT
+                            </div>
+                            <div>
+                                <h3 class="text-xs font-bold text-white">Broker MQTT (Mosquitto)</h3>
+                                <p class="text-[10px] mono text-slate-400">IP: 192.168.10.100</p>
+                            </div>
+                        </div>
+                        <span id="broker-port-badge" class="px-2 py-0.5 rounded text-[10px] font-bold mono bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                            TCP :1883
+                        </span>
+                    </div>
+
+                    <!-- Tabla de Topics Retenidos (Retain) y Last Will en el Broker -->
+                    <div class="bg-slate-950/90 rounded-lg p-2 border border-slate-800 text-[10px] mono space-y-1.5">
+                        <div class="flex items-center justify-between text-slate-400 border-b border-slate-800 pb-1">
+                            <span class="font-bold text-amber-300">📌 Tabla Retain + Estado LWT</span>
+                            <span>ACL: sensor1..3</span>
+                        </div>
+                        <div class="space-y-1">
+                            <div class="flex justify-between items-center">
+                                <span class="text-slate-400">camara1/temp:</span>
+                                <span id="retain-cam1" class="text-emerald-300 font-semibold">35.2 °C (online)</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-slate-400">camara2/temp:</span>
+                                <span id="retain-cam2" class="text-emerald-300 font-semibold">34.8 °C (online)</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-slate-400">camara3/temp:</span>
+                                <span id="retain-cam3" class="text-emerald-300 font-semibold">35.1 °C (online)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Contador de Mensajes del Broker -->
+                    <div class="mt-2 flex items-center justify-between text-[10px] mono text-slate-400 px-1">
+                        <span>TX/RX: <strong id="broker-msg-count" class="text-white">0</strong> pkts</span>
+                        <span>Retransmisiones TCP/QoS1: <strong id="broker-retx-count" class="text-amber-300">0</strong></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- COLUMNA 4: CAPA 4 APLICACIÓN (MONITOR DASHBOARD + SIRENA + BASE DE DATOS) -->
+            <div class="lg:col-span-3 flex flex-col gap-3">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mono">Capa 4 · Aplicación (Suscriptores)</span>
+
+                <!-- MONITOR SUSCRIPTOR -->
+                <div id="node-monitor" class="bg-slate-900/95 border border-slate-700/90 rounded-xl p-3 shadow-lg">
+                    <div class="flex items-center justify-between mb-2">
+                        <div>
+                            <h3 class="text-xs font-bold text-white">🖥️ Monitor & Registro Automático</h3>
+                            <p class="text-[10px] mono text-slate-400">IP: 192.168.10.50 · user: monitor</p>
+                        </div>
+                        <span class="px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30 text-[10px] mono">
+                            SUB: lab/#
+                        </span>
+                    </div>
+
+                    <!-- Mini vista en vivo de suscripción -->
+                    <div class="bg-slate-950 rounded-lg p-2 border border-slate-800 text-[10px] mono space-y-1">
+                        <div class="text-slate-400 flex justify-between">
+                            <span>Último Payload Recibido:</span>
+                            <span id="monitor-qos-tag" class="text-sky-400">QoS 0</span>
+                        </div>
+                        <div id="monitor-last-topic" class="text-amber-300 truncate">lab/niebla/camara1/temperatura</div>
+                        <div id="monitor-last-json" class="text-emerald-300 bg-slate-900 px-1.5 py-1 rounded border border-slate-800/80">
+                            {"temp": 35.2, "hora": "02:00:04"}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SIRENA DE ALERTA LOCAL + CELULAR DEL RESPONSABLE -->
+                <div id="node-siren" class="bg-slate-900/95 border-2 border-slate-700/80 rounded-xl p-3 shadow-lg transition-all">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2.5">
+                            <div id="siren-icon-box" class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-xl">
+                                🚨
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-1.5">
+                                    <h3 class="text-xs font-bold text-white">Sirena Local + Alerta Celular</h3>
+                                    <span id="siren-state-badge" class="px-1.5 py-0.2 rounded text-[10px] font-bold mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                        EN RANGO
+                                    </span>
+                                </div>
+                                <p id="siren-reason-text" class="text-[11px] text-slate-300 mt-0.5">
+                                    Cámaras entre 33 °C y 37 °C · Sin alertas activas
+                                </p>
+                            </div>
+                        </div>
+                        <button onclick="acknowledgeAlarm()" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] mono text-slate-300 border border-slate-700 shrink-0" title="Silenciar sirena manualmente">
+                            Silenciar
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- PANEL TÉCNICO INFERIOR: 3 PESTAÑAS (INSPECTOR DE PAQUETES / WIRESHARK TLS / QoS DE RED) -->
+    <section class="bg-slate-950 border-t border-slate-800 h-72 flex flex-col">
+        <!-- Pestañas -->
+        <div class="flex items-center justify-between bg-slate-900 px-4 border-b border-slate-800">
+            <div class="flex items-center space-x-1">
+                <button id="tabBtn-packets" onclick="switchTab('packets')" class="px-4 py-2 text-xs font-bold border-b-2 border-sky-400 text-sky-400 bg-slate-950/60 flex items-center gap-1.5">
+                    📦 1. Consola de Paquetes MQTT & Inspector OSI
+                </button>
+                <button id="tabBtn-wireshark" onclick="switchTab('wireshark')" class="px-4 py-2 text-xs font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-1.5">
+                    🦈 2. Captura Wireshark: Puerto 1883 vs 8883 TLS (Diap. 11)
+                </button>
+                <button id="tabBtn-qos" onclick="switchTab('qos')" class="px-4 py-2 text-xs font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-1.5">
+                    📊 3. Simulador de QoS de Red: Delay, Jitter y Pérdida (Diap. 10)
+                </button>
+            </div>
+            <div class="hidden sm:flex items-center gap-3 text-[11px] mono text-slate-400">
+                <span>Click en cualquier paquete para inspeccionar capas L2/L3/L4/L7</span>
+                <button onclick="clearPacketLogs()" class="text-xs text-slate-400 hover:text-white px-2 py-0.5 rounded bg-slate-800">Limpiar Log</button>
+            </div>
+        </div>
+
+        <!-- CONTENIDO PESTAÑA 1: CONSOLA DE PAQUETES + INSPECTOR DE CAPAS -->
+        <div id="tabContent-packets" class="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
+            <!-- Tabla de paquetes en vivo -->
+            <div class="lg:col-span-7 border-r border-slate-800 overflow-y-auto p-2">
+                <table class="w-full text-left border-collapse mono text-[11px]">
+                    <thead>
+                        <tr class="border-b border-slate-800 text-slate-400 text-[10px] uppercase">
+                            <th class="py-1 px-2">Hora</th>
+                            <th class="py-1 px-2">Origen → Destino</th>
+                            <th class="py-1 px-2">Tipo MQTT</th>
+                            <th class="py-1 px-2">QoS</th>
+                            <th class="py-1 px-2">Topic / Detalle</th>
+                        </tr>
+                    </thead>
+                    <tbody id="packetTableBody" class="divide-y divide-slate-800/60">
+                        <!-- Filas dinámicas -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Inspector PDU Detallado (L2, L3, L4, L7 MQTT) -->
+            <div class="lg:col-span-5 bg-slate-900/50 p-3 overflow-y-auto mono text-xs">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-2">
+                    <span class="font-bold text-sky-400">🔍 INSPECTOR DE PAQUETE (PDU DETAILS)</span>
+                    <span id="inspector-pkt-id" class="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300">Seleccioná un paquete</span>
+                </div>
+                <div id="inspectorContent" class="space-y-2 text-[11px]">
+                    <div class="p-2 rounded bg-slate-900 border border-slate-800">
+                        <div class="text-indigo-400 font-bold">Capa 2 · Trama Ethernet 802.1Q</div>
+                        <div class="text-slate-300">VLAN ID: <span class="text-white font-semibold">10 (VLAN_IoT)</span> · Prioridad 802.1p: 4</div>
+                    </div>
+                    <div class="p-2 rounded bg-slate-900 border border-slate-800">
+                        <div class="text-sky-400 font-bold">Capa 3 · Paquete IPv4 (DSCP QoS)</div>
+                        <div id="insp-l3" class="text-slate-300">SRC: 192.168.10.11 → DST: 192.168.10.100 · DSCP: CS3</div>
+                    </div>
+                    <div class="p-2 rounded bg-slate-900 border border-slate-800">
+                        <div class="text-amber-400 font-bold">Capa 4 · Segmento TCP</div>
+                        <div id="insp-l4" class="text-slate-300">Puerto Destino: 1883 (MQTT sin cifrar) · Flags: [PSH, ACK]</div>
+                    </div>
+                    <div class="p-2 rounded bg-slate-900 border border-emerald-500/30">
+                        <div class="text-emerald-400 font-bold">Capa 7 · Middleware MQTT (Encabezado fijo: 2 bytes)</div>
+                        <div id="insp-l7" class="text-emerald-200 mt-1 break-all">PUBLISH · Topic: lab/niebla/camara1/temperatura · Payload: {"temp": 35.2, "hora": "02:00:00"}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CONTENIDO PESTAÑA 2: COMPARADOR WIRESHARK SIN TLS (1883) VS CON TLS (8883) -->
+        <div id="tabContent-wireshark" class="hidden flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 p-4 overflow-y-auto bg-slate-950">
+            <!-- Sin TLS Puerto 1883 -->
+            <div class="rounded-xl border border-rose-500/40 bg-slate-900/70 p-3 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-bold text-rose-300 mono">🔓 SIN TLS · PUERTO TCP 1883 (Texto Plano)</span>
+                        <button onclick="setSecurityMode(false)" class="px-2 py-0.5 rounded text-[10px] bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30">Activar en Simulador</button>
+                    </div>
+                    <p class="text-[11px] text-slate-400 mb-2">Cualquier persona que capture tráfico en la red ve el usuario, la contraseña y las lecturas de temperatura:</p>
+                    <pre id="wireshark-plain-box" class="bg-slate-950 p-2.5 rounded-lg border border-slate-800 mono text-[11px] text-amber-300 overflow-x-auto leading-relaxed">Frame 14: 118 bytes on wire · TCP Src Port: 49152 -> Dst Port: 1883
+MQTT Protocol (Header: 2 bytes)
+  CONNECT  client_id="camara1"
+           usuario="sensor1"
+           clave="lab1234"
+           last_will="lab/niebla/camara1/estado" -> "offline"
+  PUBLISH  topic="lab/niebla/camara1/temperatura" (QoS 0, Retain 1)
+           payload={"temp": 35.2, "hora": "03:15:00"}</pre>
+                </div>
+            </div>
+
+            <!-- Con TLS Puerto 8883 -->
+            <div class="rounded-xl border border-emerald-500/40 bg-slate-900/70 p-3 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-bold text-emerald-300 mono">🔒 CON TLS v1.3 · PUERTO TCP 8883 (Cifrado)</span>
+                        <button onclick="setSecurityMode(true)" class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30">Activar en Simulador</button>
+                    </div>
+                    <p class="text-[11px] text-slate-400 mb-2">Con TLS en el puerto 8883 + ACL + Certificados, un atacante solo ve bytes cifrados imposibles de leer o adulterar:</p>
+                    <pre id="wireshark-tls-box" class="bg-slate-950 p-2.5 rounded-lg border border-slate-800 mono text-[11px] text-emerald-300 overflow-x-auto leading-relaxed">Frame 18: 142 bytes on wire · TCP Src Port: 49155 -> Dst Port: 8883
+Transport Layer Security (TLSv1.3 Record Layer: Application Data)
+  Content Type: Application Data (23) · Version: TLS 1.3 (0x0304)
+  Encrypted Application Data:
+  17 03 03 00 4a 9f c2 1e 7b d0 8b 44 e5 3a 61 f9
+  0c 88 4b 2d 91 a4 7e 3c 55 b1 09 f4 d2 67 1a 9e ...</pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- CONTENIDO PESTAÑA 3: SIMULADOR DE QoS DE RED (DIAPOSITIVA 10) -->
+        <div id="tabContent-qos" class="hidden flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 p-4 overflow-y-auto bg-slate-950">
+            <!-- Retardo (Delay) -->
+            <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-3">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-xs font-bold text-white">⏱️ Retardo (Delay)</span>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300">Impacto: BAJO</span>
+                </div>
+                <p class="text-[11px] text-slate-400 mb-3">Que una alerta tarde 1 o 2 segundos no afecta: la inercia térmica de la cámara varía en minutos.</p>
+                <div class="flex items-center gap-3">
+                    <input id="qos-delay-slider" type="range" min="20" max="1500" step="20" value="60" oninput="updateNetworkQoS()" class="w-full">
+                    <span id="qos-delay-val" class="mono text-xs text-sky-300 w-16 text-right">60 ms</span>
+                </div>
+            </div>
+
+            <!-- Jitter -->
+            <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-3">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-xs font-bold text-white">〰️ Variación (Jitter)</span>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300">Impacto: BAJO</span>
+                </div>
+                <p class="text-[11px] text-slate-400 mb-3">Es crítico en VoIP o videoconferencia, pero no en telemetría IoT con estampas de tiempo JSON.</p>
+                <div class="flex items-center gap-3">
+                    <input id="qos-jitter-slider" type="range" min="0" max="300" step="10" value="5" oninput="updateNetworkQoS()" class="w-full">
+                    <span id="qos-jitter-val" class="mono text-xs text-sky-300 w-16 text-right">±5 ms</span>
+                </div>
+            </div>
+
+            <!-- Pérdida de Paquetes (Packet Loss) -->
+            <div class="bg-slate-900/80 border border-rose-500/40 rounded-xl p-3">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-xs font-bold text-white">❌ Pérdida de Paquetes</span>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">Impacto: ALTO</span>
+                </div>
+                <p class="text-[11px] text-slate-400 mb-2">No podemos perder una alerta. Si subís la pérdida, vas a ver cómo <strong class="text-amber-300">TCP + MQTT QoS 1 retransmiten</strong> hasta recibir el <code class="text-emerald-300">PUBACK</code>.</p>
+                <div class="flex items-center gap-3">
+                    <input id="qos-loss-slider" type="range" min="0" max="60" step="10" value="0" oninput="updateNetworkQoS()" class="w-full">
+                    <span id="qos-loss-val" class="mono text-xs text-rose-400 font-bold w-16 text-right">0 %</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        // =========================================================================
+        // ESTADO DEL SIMULADOR DE RED IoT & MQTT (GRUPO 4 - UAI)
+        // =========================================================================
+        const state = {
+            autoPublish: true,
+            tlsEnabled: false, // false = 1883, true = 8883
+            soundEnabled: false,
+            sirenActive: false,
+            simSeconds: 0,
+            msgCount: 0,
+            retxCount: 0,
+            netDelayMs: 60,
+            netJitterMs: 5,
+            netLossPct: 0,
+            cameras: {
+                1: { id: 1, name: "camara1", ip: "192.168.10.11", user: "sensor1", temp: 35.2, online: true },
+                2: { id: 2, name: "camara2", ip: "192.168.10.12", user: "sensor2", temp: 34.8, online: true },
+                3: { id: 3, name: "camara3", ip: "192.168.10.13", user: "sensor3", temp: 35.1, online: true }
+            },
+            packetsLog: []
+        };
+
+        let autoTimer = null;
+        let sirenSynth = null;
+        let sirenLoop = null;
+
+        // =========================================================================
+        // DIBUJADO DE CABLES DE RED EN SVG Y ANIMACIÓN DE PAQUETES PDU
+        // =========================================================================
+        function getCenterCoords(elementId) {
+            const el = document.getElementById(elementId);
+            const canvas = document.getElementById('networkSvg');
+            if (!el || !canvas) return { x: 0, y: 0 };
+            const rect = el.getBoundingClientRect();
+            const canvasRect = canvas.getBoundingClientRect();
+            return {
+                x: rect.left - canvasRect.left + rect.width / 2,
+                y: rect.top - canvasRect.top + rect.height / 2
+            };
+        }
+
+        function drawNetworkCables() {
+            const svg = document.getElementById('networkSvg');
+            if (!svg) return;
+            svg.innerHTML = '';
+
+            const sw = getCenterCoords('node-switch');
+            const broker = getCenterCoords('node-broker');
+            const monitor = getCenterCoords('node-monitor');
+            const siren = getCenterCoords('node-siren');
+
+            //Enlaces desde las 3 cámaras al Switch
+            [1, 2, 3].forEach(cid => {
+                const cam = getCenterCoords(`node-cam${cid}`);
+                const isOnline = state.cameras[cid].online;
+                createSvgLine(svg, cam.x, cam.y, sw.x, sw.y, isOnline ? '#334155' : '#ef4444', isOnline ? 'none' : '6,6');
+            });
+
+            // Switch -> Broker
+            createSvgLine(svg, sw.x, sw.y, broker.x, broker.y, '#475569', 'none', 2.5);
+            // Broker -> Monitor
+            createSvgLine(svg, broker.x, broker.y, monitor.x, monitor.y, '#475569', 'none', 2.5);
+            // Monitor -> Sirena
+            createSvgLine(svg, monitor.x, monitor.y, siren.x, siren.y, state.sirenActive ? '#ef4444' : '#334155', 'none', 2);
+        }
+
+        function createSvgLine(svg, x1, y1, x2, y2, color, dash = 'none', width = 2) {
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', x1);
+            line.setAttribute('y1', y1);
+            line.setAttribute('x2', x2);
+            line.setAttribute('y2', y2);
+            line.setAttribute('stroke', color);
+            line.setAttribute('stroke-width', width);
+            if (dash !== 'none') line.setAttribute('stroke-dasharray', dash);
+            svg.appendChild(line);
+        }
+
+        // Animar una píldora PDU de un nodo a otro
+        function animatePDU(fromNodeId, toNodeId, label, colorClass, durationMs = 650, onComplete = null) {
+            const layer = document.getElementById('packetsLayer');
+            if (!layer) return;
+
+            const start = getCenterCoords(fromNodeId);
+            const end = getCenterCoords(toNodeId);
+
+            const pill = document.createElement('div');
+            pill.className = `absolute px-2 py-0.5 rounded-full text-[10px] font-bold mono shadow-md border pointer-events-none flex items-center gap-1 whitespace-nowrap transform -translate-x-1/2 -translate-y-1/2 ${colorClass}`;
+            pill.style.left = `${start.x}px`;
+            pill.style.top = `${start.y}px`;
+            pill.style.transition = `left ${durationMs}ms cubic-bezier(0.22, 1, 0.36, 1), top ${durationMs}ms cubic-bezier(0.22, 1, 0.36, 1)`;
+            pill.innerHTML = label;
+
+            layer.appendChild(pill);
+
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    pill.style.left = `${end.x}px`;
+                    pill.style.top = `${end.y}px`;
+                });
+            });
+
+            setTimeout(() => {
+                pill.remove();
+                if (onComplete) onComplete();
+            }, durationMs);
+        }
+
+        // =========================================================================
+        // LÓGICA DE PROTOCOLO MQTT (PUBLISH, QoS 0/1/2, RETAIN Y LAST WILL)
+        // =========================================================================
+        function formatSimTime() {
+            state.simSeconds = (state.simSeconds + 4) % 3600;
+            const mins = String(Math.floor(state.simSeconds / 60)).padStart(2, '0');
+            const secs = String(state.simSeconds % 60).padStart(2, '0');
+            const str = `02:${mins}:${secs}`;
+            document.getElementById('clockDisplay').innerText = `Sáb ${str}`;
+            return str;
+        }
+
+        function publishFromCamera(camId, forceQoS = null) {
+            const cam = state.cameras[camId];
+            if (!cam.online) return;
+
+            const hora = formatSimTime();
+            const isOut = cam.temp < 33.0 || cam.temp > 37.0;
+            const qos = forceQoS !== null ? forceQoS : (isOut ? 1 : 0);
+            const topic = `lab/niebla/${cam.name}/temperatura`;
+            const payload = `{"temp": ${cam.temp.toFixed(1)}, "hora": "${hora}"}`;
+
+            // Evaluar si hay pérdida de paquetes simulada en la red
+            const dropped = Math.random() * 100 < state.netLossPct;
+
+            if (dropped) {
+                // Paquete se pierde camino al Switch
+                animatePDU(`node-cam${camId}`, 'node-switch', `❌ DROP (Loss)`, 'bg-rose-950 text-rose-300 border-rose-500', 450, () => {
+                    logPacket(cam.ip, '192.168.10.100', 'DROP (Pérdida)', `QoS ${qos}`, `Paquete perdido en red (${topic})`, payload, true);
+                    if (qos >= 1) {
+                        // TCP + QoS 1 retransmite automáticamente para no perder la alerta
+                        state.retxCount++;
+                        document.getElementById('broker-retx-count').innerText = state.retxCount;
+                        setTimeout(() => {
+                            animatePDU(`node-cam${camId}`, 'node-broker', `🔄 RETX PUBLISH (QoS 1)`, 'bg-amber-500 text-slate-950 border-amber-300', 600, () => {
+                                processBrokerArrival(cam, topic, payload, qos, isOut);
+                            });
+                        }, 300);
+                    }
+                });
+                return;
+            }
+
+            // Envío normal Cam -> Switch -> Broker
+            const pillColor = isOut
+                ? 'bg-rose-600 text-white border-rose-300'
+                : (state.tlsEnabled ? 'bg-emerald-600 text-white border-emerald-300' : 'bg-sky-500 text-slate-950 border-sky-200');
+            const labelText = state.tlsEnabled
+                ? `🔒 TLS ${cam.temp.toFixed(1)}°C (Q${qos})`
+                : `PUBLISH ${cam.temp.toFixed(1)}°C (Q${qos})`;
+
+            animatePDU(`node-cam${camId}`, 'node-switch', labelText, pillColor, 320, () => {
+                animatePDU('node-switch', 'node-broker', labelText, pillColor, 320, () => {
+                    processBrokerArrival(cam, topic, payload, qos, isOut);
+                });
+            });
+        }
+
+        function processBrokerArrival(cam, topic, payload, qos, isOut) {
+            state.msgCount++;
+            document.getElementById('broker-msg-count').innerText = state.msgCount;
+
+            // Actualizar tabla Retain del Broker
+            const retainEl = document.getElementById(`retain-cam${cam.id}`);
+            retainEl.innerText = `${cam.temp.toFixed(1)} °C (online)`;
+            retainEl.className = isOut ? 'text-rose-400 font-bold' : 'text-emerald-300 font-semibold';
+
+            logPacket(cam.ip, '192.168.10.100', 'PUBLISH', `QoS ${qos}`, topic, payload);
+
+            // Si es QoS 1, el Broker devuelve PUBACK a la cámara
+            if (qos === 1) {
+                animatePDU('node-broker', `node-cam${cam.id}`, '✓ PUBACK', 'bg-amber-400 text-slate-950 border-amber-200', 480);
+                logPacket('192.168.10.100', cam.ip, 'PUBACK', 'QoS 1', `Confirmación de entrega (${cam.name})`, 'ACK Message ID');
+            }
+
+            // El Broker distribuye a los suscriptores (Monitor)
+            const distColor = isOut ? 'bg-rose-600 text-white border-rose-300' : 'bg-indigo-500 text-white border-indigo-300';
+            animatePDU('node-broker', 'node-monitor', `MSG ${cam.temp.toFixed(1)}°C`, distColor, 420, () => {
+                updateMonitorDashboard(topic, payload, qos);
+                evaluateAlarmState();
+            });
+        }
+
+        function updateMonitorDashboard(topic, payload, qos) {
+            document.getElementById('monitor-last-topic').innerText = topic;
+            document.getElementById('monitor-last-json').innerText = payload;
+            document.getElementById('monitor-qos-tag').innerText = `QoS ${qos} · Retain`;
+        }
+
+        // =========================================================================
+        // EVALUACIÓN DE TOLERANCIA (33 a 37 °C) Y LAST WILL -> SIRENA
+        // =========================================================================
+        function evaluateAlarmState() {
+            let motivos = [];
+            [1, 2, 3].forEach(id => {
+                const c = state.cameras[id];
+                if (!c.online) {
+                    motivos.push(`Cámara #${id} OFFLINE (Last Will)`);
+                } else if (c.temp < 33.0 || c.temp > 37.0) {
+                    motivos.push(`Cámara #${id} fuera de rango (${c.temp.toFixed(1)} °C)`);
+                }
+            });
+
+            const sirenNode = document.getElementById('node-siren');
+            const sirenBadge = document.getElementById('siren-state-badge');
+            const sirenReason = document.getElementById('siren-reason-text');
+
+            if (motivos.length > 0) {
+                state.sirenActive = true;
+                sirenNode.classList.add('siren-active');
+                sirenBadge.className = 'px-1.5 py-0.2 rounded text-[10px] font-bold mono bg-rose-500 text-white animate-pulse';
+                sirenBadge.innerText = '¡ALERTA CRÍTICA!';
+                sirenReason.innerText = motivos.join(' · ') + ' → Aviso enviado al celular';
+                sirenReason.className = 'text-[11px] text-rose-200 font-semibold mt-0.5';
+
+                animatePDU('node-monitor', 'node-siren', '🚨 D0=HIGH (SIRENA ON)', 'bg-rose-600 text-white border-white', 350);
+                triggerSirenAudio(true);
+            } else {
+                state.sirenActive = false;
+                sirenNode.classList.remove('siren-active');
+                sirenBadge.className = 'px-1.5 py-0.2 rounded text-[10px] font-bold mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+                sirenBadge.innerText = 'EN RANGO';
+                sirenReason.innerText = 'Cámaras entre 33 °C y 37 °C · Sin alertas activas';
+                sirenReason.className = 'text-[11px] text-slate-300 mt-0.5';
+                triggerSirenAudio(false);
+            }
+            drawNetworkCables();
+        }
+
+        function acknowledgeAlarm() {
+            const sirenNode = document.getElementById('node-siren');
+            sirenNode.classList.remove('siren-active');
+            triggerSirenAudio(false);
+        }
+
+        // =========================================================================
+        // CONTROLES DE TEMPERATURA Y CORTE DE CABLE (LAST WILL)
+        // =========================================================================
+        function updateCamTemp(camId, val) {
+            const num = parseFloat(val);
+            state.cameras[camId].temp = num;
+            document.getElementById(`slider-cam${camId}`).value = num;
+
+            const badge = document.getElementById(`temp-badge-cam${camId}`);
+            badge.innerText = `${num.toFixed(1)} °C`;
+
+            const isOut = num < 33.0 || num > 37.0;
+            if (isOut) {
+                badge.className = 'text-lg font-bold mono px-2 py-0.5 rounded-lg bg-rose-500/25 text-rose-300 border border-rose-500/50 animate-pulse';
+            } else {
+                badge.className = 'text-lg font-bold mono px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30';
+            }
+        }
+
+        function setQuickTemp(camId, tempVal) {
+            updateCamTemp(camId, tempVal);
+            publishFromCamera(camId);
+        }
+
+        function toggleCable(camId) {
+            const cam = state.cameras[camId];
+            cam.online = !cam.online;
+
+            const led = document.getElementById(`led-cam${camId}`);
+            const btn = document.getElementById(`btn-cable-cam${camId}`);
+            const card = document.getElementById(`node-cam${camId}`);
+            const retainEl = document.getElementById(`retain-cam${camId}`);
+
+            if (!cam.online) {
+                // Sensor desconectado de golpe -> Broker dispara Last Will
+                led.className = 'w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e]';
+                btn.innerText = '🔌 Reconectar';
+                btn.className = 'px-2 py-0.5 rounded bg-rose-600 text-white text-[10px] mono shrink-0';
+                card.classList.add('opacity-75', 'border-rose-500/60');
+
+                retainEl.innerText = 'OFFLINE (Last Will)';
+                retainEl.className = 'text-rose-400 font-bold';
+
+                const lwtTopic = `lab/niebla/${cam.name}/estado`;
+                logPacket('192.168.10.100', '192.168.10.50', 'LAST WILL (LWT)', 'QoS 1', lwtTopic, 'offline (Sensor sin Keep-Alive TCP)');
+
+                animatePDU('node-broker', 'node-monitor', `🔌 LWT: ${cam.name} OFFLINE`, 'bg-amber-500 text-slate-950 border-white', 500, () => {
+                    updateMonitorDashboard(lwtTopic, '"offline"', 1);
+                    evaluateAlarmState();
+                });
+            } else {
+                // Reconexión del sensor
+                led.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]';
+                btn.innerText = '🔌 Cortar';
+                btn.className = 'px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px] mono shrink-0';
+                card.classList.remove('opacity-75', 'border-rose-500/60');
+
+                animatePDU(`node-cam${camId}`, 'node-broker', 'CONNECT + online', 'bg-emerald-500 text-slate-950 border-white', 450, () => {
+                    publishFromCamera(camId);
+                    evaluateAlarmState();
+                });
+            }
+            drawNetworkCables();
+        }
+
+        // =========================================================================
+        // LOS 5 ESCENARIOS GUIADOS DE LA DIAPOSITIVA 13
+        // =========================================================================
+        function setBanner(tag, text) {
+            document.getElementById('bannerStepTag').innerText = tag;
+            document.getElementById('bannerStepText').innerText = text;
+        }
+
+        function runScenario(num) {
+            if (num === 1) {
+                setBanner('DEMO PASO 1 · CONEXIÓN', 'Las 3 cámaras envían CONNECT con usuario/clave y Last Will configurado; el Broker valida las credenciales y responde CONNACK.');
+                [1, 2, 3].forEach((cid, idx) => {
+                    state.cameras[cid].online = true;
+                    setTimeout(() => {
+                        const cam = state.cameras[cid];
+                        animatePDU(`node-cam${cid}`, 'node-broker', `CONNECT (${cam.user})`, 'bg-indigo-500 text-white border-indigo-300', 500, () => {
+                            logPacket(cam.ip, '192.168.10.100', 'CONNECT', 'TCP', `user=${cam.user} pwd=lab1234`, `LWT: lab/niebla/${cam.name}/estado -> "offline"`);
+                            animatePDU('node-broker', `node-cam${cid}`, 'CONNACK (0 OK)', 'bg-emerald-500 text-slate-950 border-emerald-200', 450);
+                            logPacket('192.168.10.100', cam.ip, 'CONNACK', 'TCP', 'Return Code: 0 (Connection Accepted)', 'Session Present: 0');
+                        });
+                    }, idx * 350);
+                });
+            }
+            else if (num === 2) {
+                setBanner('DEMO PASO 2 · LECTURAS NORMALES (QoS 0)', 'Las 3 cámaras están dentro de 35 °C ± 2 °C (Norma ASTM B117). Publican con QoS 0 (1 solo mensaje PUBLISH sin sobrecargar la red).');
+                [1, 2, 3].forEach(cid => {
+                    if (!state.cameras[cid].online) toggleCable(cid);
+                });
+                updateCamTemp(1, 35.2);
+                updateCamTemp(2, 34.8);
+                updateCamTemp(3, 35.0);
+                evaluateAlarmState();
+                [1, 2, 3].forEach((cid, i) => setTimeout(() => publishFromCamera(cid, 0), i * 250));
+            }
+            else if (num === 3) {
+                setBanner('DEMO PASO 3 · FALLA DE MADRUGADA (QoS 1)', 'Sábado 02:00 AM: La Cámara 1 sube a 39.5 °C (fuera de 33–37 °C). Cambia automáticamente a QoS 1, exige PUBACK y dispara la Sirena en segundos.');
+                if (!state.cameras[1].online) toggleCable(1);
+                updateCamTemp(1, 39.5);
+                publishFromCamera(1, 1);
+            }
+            else if (num === 4) {
+                setBanner('DEMO PASO 4 · CAÍDA DE SENSOR (LAST WILL)', 'Se corta la conexión de la Cámara 2. El Broker detecta la caída TCP y publica automáticamente "offline" en su nombre (Last Will), encendiendo la alerta.');
+                if (state.cameras[2].online) {
+                    toggleCable(2);
+                } else {
+                    toggleCable(2);
+                    setTimeout(() => toggleCable(2), 600);
+                }
+            }
+            else if (num === 5) {
+                setBanner('DEMO PASO 5 · EVENTO DE REGISTRO (QoS 2)', 'Demostración de los 4 mensajes de QoS 2 (Exactamente una vez: PUBLISH → PUBREC → PUBREL → PUBCOMP) para registrar el inicio/falla del ensayo sin duplicados.');
+                const cam = state.cameras[1];
+                const topic = 'lab/niebla/camara1/registro_ensayo';
+                const payload = '{"evento": "INICIO_ENSAYO_ASTM_B117", "lote": "A-402", "temp_inicial": 35.2}';
+
+                animatePDU('node-cam1', 'node-broker', '1/4 PUBLISH (QoS 2)', 'bg-purple-500 text-white border-purple-200', 450, () => {
+                    logPacket(cam.ip, '192.168.10.100', 'PUBLISH', 'QoS 2', topic, payload);
+                    animatePDU('node-broker', 'node-cam1', '2/4 PUBREC', 'bg-purple-400 text-slate-950 border-white', 450, () => {
+                        logPacket('192.168.10.100', cam.ip, 'PUBREC', 'QoS 2', 'Packet Received (Paso 2 de 4)', 'MsgID: 901');
+                        animatePDU('node-cam1', 'node-broker', '3/4 PUBREL', 'bg-purple-500 text-white border-purple-200', 450, () => {
+                            logPacket(cam.ip, '192.168.10.100', 'PUBREL', 'QoS 2', 'Packet Release (Paso 3 de 4)', 'MsgID: 901');
+                            animatePDU('node-broker', 'node-cam1', '4/4 PUBCOMP', 'bg-emerald-400 text-slate-950 border-white', 450, () => {
+                                logPacket('192.168.10.100', cam.ip, 'PUBCOMP', 'QoS 2', 'Packet Complete (Exactamente 1 vez)', 'Guardado en Base de Datos sin duplicados');
+                                updateMonitorDashboard(topic, payload, 2);
+                            });
+                        });
+                    });
+                });
+            }
+        }
+
+        // =========================================================================
+        // CONSOLA DE PAQUETES E INSPECTOR DE CAPAS OSI
+        // =========================================================================
+        function logPacket(src, dst, type, qos, topic, payload, isError = false) {
+            const hora = document.getElementById('clockDisplay').innerText.replace('Sáb ', '');
+            const pkt = {
+                id: state.packetsLog.length + 1,
+                hora, src, dst, type, qos, topic, payload,
+                tls: state.tlsEnabled,
+                isError
+            };
+            state.packetsLog.unshift(pkt);
+            if (state.packetsLog.length > 35) state.packetsLog.pop();
+
+            renderPacketTable();
+            inspectPacket(pkt.id);
+        }
+
+        function renderPacketTable() {
+            const tbody = document.getElementById('packetTableBody');
+            tbody.innerHTML = state.packetsLog.map(p => {
+                const badgeColor = p.isError
+                    ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                    : (p.type === 'LAST WILL (LWT)' || p.qos === 'QoS 1' ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-sky-500/15 text-sky-300 border-sky-500/30');
+                return `
+                    <tr onclick="inspectPacket(${p.id})" class="hover:bg-slate-800/70 cursor-pointer transition">
+                        <td class="py-1 px-2 text-slate-400">${p.hora}</td>
+                        <td class="py-1 px-2 text-slate-200">${p.src} → ${p.dst}</td>
+                        <td class="py-1 px-2"><span class="px-1.5 py-0.2 rounded border text-[10px] font-bold ${badgeColor}">${p.type}</span></td>
+                        <td class="py-1 px-2 text-slate-300">${p.qos}</td>
+                        <td class="py-1 px-2 text-emerald-300 truncate max-w-[260px]">${p.tls ? '🔒 [TLSv1.3 Application Data]' : p.topic}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function inspectPacket(pktId) {
+            const pkt = state.packetsLog.find(x => x.id === pktId);
+            if (!pkt) return;
+
+            document.getElementById('inspector-pkt-id').innerText = `Paquete #${pkt.id} (${pkt.type})`;
+            document.getElementById('insp-l3').innerText = `SRC: ${pkt.src} → DST: ${pkt.dst} · DSCP: CS3 (Prioridad VLAN IoT)`;
+            document.getElementById('insp-l4').innerText = pkt.tls
+                ? `Puerto TCP: 8883 (MQTT sobre TLS v1.3 Cifrado) · Flags: [PSH, ACK]`
+                : `Puerto TCP: 1883 (MQTT Texto Plano) · Flags: [PSH, ACK]`;
+
+            if (pkt.tls) {
+                document.getElementById('insp-l7').innerHTML = `<span class="text-emerald-300">TLSv1.3 Record Layer: Application Data (Cifrado)</span><br><span class="text-slate-400">17 03 03 00 4a 9f c2 1e 7b d0 8b 44 e5 3a 61 f9 0c...</span><br><span class="text-[10px] text-amber-300">(Desactivá TLS arriba para ver el contenido en claro)</span>`;
+            } else {
+                document.getElementById('insp-l7').innerHTML = `<strong>${pkt.type}</strong> (${pkt.qos}) · Topic/Info: <span class="text-amber-300">${pkt.topic}</span><br>Payload: <span class="text-white">${pkt.payload}</span>`;
+            }
+        }
+
+        function clearPacketLogs() {
+            state.packetsLog = [];
+            renderPacketTable();
+        }
+
+        // =========================================================================
+        // SEGURIDAD (1883 VS 8883 TLS), PESTAÑAS Y QoS DE RED
+        // =========================================================================
+        function setSecurityMode(enableTls) {
+            state.tlsEnabled = enableTls;
+            const b1883 = document.getElementById('btnPort1883');
+            const b8883 = document.getElementById('btnPort8883');
+            const badge = document.getElementById('broker-port-badge');
+
+            if (enableTls) {
+                b8883.className = 'px-2.5 py-1 rounded text-xs font-semibold mono transition bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+                b1883.className = 'px-2.5 py-1 rounded text-xs font-semibold mono transition text-slate-400 hover:text-slate-200';
+                badge.innerText = '🔒 TLS :8883';
+                badge.className = 'px-2 py-0.5 rounded text-[10px] font-bold mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+            } else {
+                b1883.className = 'px-2.5 py-1 rounded text-xs font-semibold mono transition bg-amber-500/20 text-amber-300 border border-amber-500/40';
+                b8883.className = 'px-2.5 py-1 rounded text-xs font-semibold mono transition text-slate-400 hover:text-slate-200';
+                badge.innerText = '🔓 TCP :1883';
+                badge.className = 'px-2 py-0.5 rounded text-[10px] font-bold mono bg-amber-500/20 text-amber-300 border border-amber-500/40';
+            }
+            stepManualPublish();
+        }
+
+        function switchTab(tabName) {
+            ['packets', 'wireshark', 'qos'].forEach(t => {
+                document.getElementById(`tabContent-${t}`).classList.toggle('hidden', t !== tabName);
+                const btn = document.getElementById(`tabBtn-${t}`);
+                if (t === tabName) {
+                    btn.className = 'px-4 py-2 text-xs font-bold border-b-2 border-sky-400 text-sky-400 bg-slate-950/60 flex items-center gap-1.5';
+                } else {
+                    btn.className = 'px-4 py-2 text-xs font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-1.5';
+                }
+            });
+        }
+
+        function updateNetworkQoS() {
+            state.netDelayMs = parseInt(document.getElementById('qos-delay-slider').value, 10);
+            state.netJitterMs = parseInt(document.getElementById('qos-jitter-slider').value, 10);
+            state.netLossPct = parseInt(document.getElementById('qos-loss-slider').value, 10);
+
+            document.getElementById('qos-delay-val').innerText = `${state.netDelayMs} ms`;
+            document.getElementById('qos-jitter-val').innerText = `±${state.netJitterMs} ms`;
+            document.getElementById('qos-loss-val').innerText = `${state.netLossPct} %`;
+
+            const swLoss = document.getElementById('sw-loss-label');
+            swLoss.innerText = `${state.netLossPct}%`;
+            swLoss.className = state.netLossPct > 0 ? 'text-rose-400 font-bold' : 'text-emerald-400';
+        }
+
+        // =========================================================================
+        // AUDIO SINTETIZADO DE SIRENA (TONE.JS) Y CICLO AUTOMÁTICO
+        // =========================================================================
+        async function toggleSound() {
+            await Tone.start();
+            state.soundEnabled = !state.soundEnabled;
+            document.getElementById('soundIcon').innerText = state.soundEnabled ? '🔊' : '🔇';
+            document.getElementById('soundText').innerText = state.soundEnabled ? 'Audio ON' : 'Audio Mudo';
+            if (!state.soundEnabled) triggerSirenAudio(false);
+            else if (state.sirenActive) triggerSirenAudio(true);
+        }
+
+        function triggerSirenAudio(play) {
+            if (!state.soundEnabled || !play) {
+                if (sirenLoop) {
+                    sirenLoop.stop();
+                    sirenLoop.dispose();
+                    sirenLoop = null;
+                }
+                return;
+            }
+            if (!sirenSynth) {
+                sirenSynth = new Tone.Synth({
+                    oscillator: { type: 'sawtooth' },
+                    envelope: { attack: 0.05, decay: 0.2, sustain: 0.4, release: 0.1 }
+                }).toDestination();
+                sirenSynth.volume.value = -14;
+            }
+            if (!sirenLoop) {
+                let high = true;
+                sirenLoop = new Tone.Loop(time => {
+                    sirenSynth.triggerAttackRelease(high ? 'A5' : 'E5', '8n', time);
+                    high = !high;
+                }, '4n').start(0);
+                Tone.Transport.start();
+            }
+        }
+
+        function toggleAutoPublish() {
+            state.autoPublish = !state.autoPublish;
+            const dot = document.getElementById('autoPlayDot');
+            const txt = document.getElementById('autoPlayText');
+            const btn = document.getElementById('btnAutoPlay');
+
+            if (state.autoPublish) {
+                dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-ping';
+                txt.innerText = 'Auto-Telemetría: ON (4s)';
+                btn.className = 'px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1.5 bg-emerald-600/25 text-emerald-300 border border-emerald-500/40';
+            } else {
+                dot.className = 'w-2 h-2 rounded-full bg-slate-500';
+                txt.innerText = 'Auto-Telemetría: PAUSADA';
+                btn.className = 'px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1.5 bg-slate-800 text-slate-400 border border-slate-700';
+            }
+        }
+
+        function stepManualPublish() {
+            [1, 2, 3].forEach((cid, idx) => {
+                setTimeout(() => publishFromCamera(cid), idx * 280);
+            });
+        }
+
+        function resetFullDemo() {
+            state.netLossPct = 0;
+            document.getElementById('qos-loss-slider').value = 0;
+            updateNetworkQoS();
+            setSecurityMode(false);
+            runScenario(2);
+        }
+
+        // Inicialización al cargar la ventana
+        window.onload = function () {
+            drawNetworkCables();
+            window.addEventListener('resize', drawNetworkCables);
+
+            // Primera publicación inicial
+            setTimeout(() => stepManualPublish(), 400);
+
+            // Loop de telemetría periódica cada 4 segundos
+            autoTimer = setInterval(() => {
+                if (state.autoPublish) {
+                    stepManualPublish();
+                }
+            }, 4200);
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,1562 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NET-EMU · Cámaras de Niebla Salina (MQTT) · Grupo 4 UAI</title>
+<style>
+  :root{
+    --chrome:#e7eaee; --chrome2:#f4f5f7; --line:#b9c0c9; --text:#1f2933; --muted:#5b6673;
+    --blue:#1f6fb2; --accent:#2563eb; --ok:#15803d; --warn:#b45309; --bad:#b91c1c;
+    --mono: Consolas, "Cascadia Mono", "JetBrains Mono", monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{font:13px "Segoe UI", system-ui, -apple-system, sans-serif;color:var(--text);background:var(--chrome);display:flex;flex-direction:column;overflow:hidden;user-select:none}
+  button{font:inherit;cursor:pointer}
+  .mono{font-family:var(--mono)}
+
+  /* Barra de título */
+  .titlebar{height:30px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;background:#fff;border-bottom:1px solid var(--line);font-size:12px}
+  .titlebar .t{font-weight:600}
+  .titlebar .s{color:var(--muted)}
+
+  /* Toolbar */
+  .toolbar{display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--chrome2);border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .tb{border:1px solid #aeb6c0;background:linear-gradient(#fff,#e9ecf0);border-radius:3px;padding:3px 9px;font-size:12px;color:var(--text);display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+  .tb:hover{background:linear-gradient(#fff,#dde3ea)}
+  .tb.on{background:#dbe8fb;border-color:#6b9ae0;color:#123f86;font-weight:600}
+  .tb.warn.on{background:#fdecc8;border-color:#d39a2b;color:#7a4b00}
+  .tb.good.on{background:#d8f1df;border-color:#58a86f;color:#14532d}
+  .seg{display:inline-flex}
+  .seg .tb{border-radius:0}
+  .seg .tb:first-child{border-radius:3px 0 0 3px}
+  .seg .tb:last-child{border-radius:0 3px 3px 0;border-left:none}
+  .sep{width:1px;height:20px;background:var(--line);margin:0 4px}
+  .dot{width:8px;height:8px;border-radius:50%;background:#9aa4b1;display:inline-block}
+  .dot.live{background:#16a34a}
+  .hint{margin-left:auto;color:var(--muted);font-size:11.5px}
+
+  /* Área principal */
+  .main{flex:1;display:flex;min-height:0}
+  .ws{flex:1;position:relative;background:#fff;border-right:1px solid var(--line);min-width:0;
+      background-image:linear-gradient(#f1f4f7 1px,transparent 1px),linear-gradient(90deg,#f1f4f7 1px,transparent 1px);background-size:24px 24px}
+  .ws-tag{position:absolute;left:8px;top:6px;font-size:11px;color:var(--muted);background:#fff;border:1px solid var(--line);padding:1px 7px;border-radius:2px;z-index:2}
+  #topo{position:absolute;inset:0;width:100%;height:100%}
+  .ws{display:flex;flex-direction:column}
+  .canvas{flex:1;position:relative;min-height:0}
+  .note{background:#fffbe6;border-bottom:1px solid #e3cf7a;padding:5px 10px;font-size:12px;line-height:1.4;display:flex;gap:10px;align-items:baseline}
+  .note b{font-size:11px;letter-spacing:.03em;color:#7a5d00;white-space:nowrap}
+
+  .dev{cursor:pointer}
+  .dev:hover .hl{stroke:#2563eb;stroke-width:1.5;stroke-dasharray:3 2}
+  .dev text{font-family:"Segoe UI",system-ui,sans-serif}
+  .lbl-name{font-size:12.5px;font-weight:600;fill:#1f2933}
+  .lbl-model{font-size:10.5px;fill:#5b6673}
+  .lbl-ip{font-size:10.5px;fill:#1f4f8a;font-family:var(--mono)}
+  svg:not(.show-ip) .lbl-ip{display:none}
+  @keyframes sirenPulse{0%,100%{opacity:.15}50%{opacity:.55}}
+  .siren-halo{animation:sirenPulse .6s infinite}
+
+  /* Panel de simulación */
+  .simpanel{width:400px;display:flex;flex-direction:column;background:var(--chrome2);min-height:0}
+  .ph{padding:6px 10px;font-weight:600;border-bottom:1px solid var(--line);background:var(--chrome);display:flex;justify-content:space-between;align-items:center}
+  .ph small{font-weight:400;color:var(--muted)}
+  .evwrap{flex:1;overflow:auto;background:#fff;margin:6px;border:1px solid var(--line);min-height:0}
+  table.ev{width:100%;border-collapse:collapse;font-size:12px}
+  table.ev th{position:sticky;top:0;background:#eef1f4;border-bottom:1px solid var(--line);text-align:left;padding:3px 6px;font-weight:600;font-size:11px;color:#3b4652}
+  table.ev td{padding:2px 6px;border-bottom:1px solid #eef1f4;white-space:nowrap}
+  table.ev tr.r{cursor:pointer}
+  table.ev tr.r:hover td{background:#eaf2ff}
+  table.ev tr.sel td{background:#cfe0fb}
+  table.ev tr.drop td{color:var(--bad)}
+  .sq{display:inline-block;width:11px;height:11px;border:1px solid #333;vertical-align:-1px;margin-right:5px}
+  .pctrl{display:flex;align-items:center;gap:6px;padding:4px 8px}
+  .pbtn{width:34px;height:28px;border:1px solid #aeb6c0;background:linear-gradient(#fff,#e9ecf0);border-radius:3px;font-size:14px}
+  .pbtn:disabled{opacity:.4;cursor:default}
+  .pbtn.on{background:#dbe8fb;border-color:#6b9ae0}
+  .filters{padding:4px 10px 8px;display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px}
+  .filters label{display:flex;align-items:center;gap:4px}
+  .simstat{padding:0 10px 4px;font-size:11.5px;color:var(--muted)}
+  .rtmask{padding:6px 10px;font-size:11.5px;color:var(--muted)}
+
+  /* Barra inferior */
+  .bottom{height:178px;display:grid;grid-template-columns:262px 175px 1fr 270px 108px;border-top:1px solid var(--line);background:var(--chrome2)}
+  .bcell{border-right:1px solid var(--line);padding:6px 8px;min-width:0;overflow:hidden}
+  .bcell:last-child{border-right:none}
+  .clock{font-family:var(--mono);font-size:20px;font-weight:600}
+  .kv{display:flex;justify-content:space-between;font-size:12px;padding:1px 0}
+  .kv b{font-family:var(--mono)}
+  .sctable{width:100%;border-collapse:collapse;font-size:12px;background:#fff;border:1px solid var(--line)}
+  .sctable th{background:#eef1f4;text-align:left;padding:2px 6px;font-size:11px;border-bottom:1px solid var(--line)}
+  .sctable td{padding:2px 6px;border-bottom:1px solid #eef1f4;white-space:nowrap}
+  .sctable td.nm{white-space:normal}
+  .fire{border:1px solid #aeb6c0;background:linear-gradient(#fff,#e9ecf0);border-radius:3px;font-size:11.5px;padding:1px 8px}
+  .st-run{color:var(--warn);font-weight:600}.st-ok{color:var(--ok);font-weight:600}.st-fail{color:var(--bad);font-weight:600}
+  .bt{font-size:11px;font-weight:600;color:#3b4652;margin-bottom:4px;text-transform:uppercase;letter-spacing:.03em}
+  .rng{display:grid;grid-template-columns:70px 1fr 56px;align-items:center;gap:6px;font-size:12px;margin:3px 0}
+  .rng input{width:100%}
+  .imp{font-size:10.5px;padding:0 4px;border-radius:2px;margin-left:4px}
+  .imp.lo{background:#dcfce7;color:#166534}.imp.hi{background:#fee2e2;color:#991b1b}
+  .modes{display:flex;flex-direction:column;gap:6px;padding-top:4px}
+  .mode{border:1px solid #aeb6c0;background:linear-gradient(#fff,#e9ecf0);border-radius:3px;padding:8px 4px;text-align:center;font-size:12px}
+  .mode.on{background:#dbe8fb;border-color:#6b9ae0;font-weight:600;color:#123f86}
+  .mode .ic{font-size:18px;display:block}
+
+  /* Ventanas (dispositivo / PDU) */
+  .win{position:fixed;z-index:60;background:#f0f0f0;border:1px solid #7d8794;box-shadow:0 8px 28px rgba(0,0,0,.25);display:flex;flex-direction:column;max-height:84vh}
+  .win.hidden{display:none}
+  .wt{height:30px;display:flex;align-items:center;justify-content:space-between;padding:0 4px 0 10px;background:#fff;border-bottom:1px solid var(--line);cursor:move;font-weight:600}
+  .wx{border:none;background:none;width:30px;height:26px;font-size:15px}
+  .wx:hover{background:#e81123;color:#fff}
+  .wtabs{display:flex;gap:2px;padding:6px 8px 0;border-bottom:1px solid var(--line)}
+  .wtab{border:1px solid var(--line);border-bottom:none;background:#e3e6ea;padding:4px 12px;font-size:12px;border-radius:3px 3px 0 0}
+  .wtab.on{background:#fff;font-weight:600;position:relative;top:1px}
+  .wbody{padding:10px 12px;overflow:auto;background:#fff}
+  .grp{border:1px solid var(--line);padding:8px 10px;margin-bottom:10px;background:#fff}
+  .grp h4{margin:0 0 6px;font-size:12px;color:#3b4652}
+  .row{display:grid;grid-template-columns:150px 1fr;gap:8px;font-size:12.5px;padding:2px 0}
+  .row span:first-child{color:var(--muted)}
+  .row span:last-child{font-family:var(--mono)}
+  table.t2{width:100%;border-collapse:collapse;font-size:12px}
+  table.t2 th{background:#eef1f4;text-align:left;padding:3px 6px;border:1px solid #dde2e8;font-size:11px}
+  table.t2 td{padding:3px 6px;border:1px solid #e7ebef;font-family:var(--mono);font-size:11.5px}
+  .bigtemp{font-family:var(--mono);font-size:30px;font-weight:700;padding:4px 10px;border:1px solid;display:inline-block;border-radius:3px}
+  .t-ok{color:#166534;background:#ecfdf3;border-color:#86d3a0}
+  .t-bad{color:#991b1b;background:#fef2f2;border-color:#f3a5a5}
+  .btnrow{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .term{background:#0f1720;color:#d1e7d6;font-family:var(--mono);font-size:11.5px;padding:8px;height:170px;overflow:auto;white-space:pre-wrap;border:1px solid #333}
+  .term .m{color:#7cc4ff}.term .s2{color:#86efac}.term .s4{color:#fca5a5}
+  .osi{width:100%;border-collapse:collapse;font-size:12px}
+  .osi th{background:#eef1f4;padding:4px 6px;border:1px solid #d5dbe2;text-align:left}
+  .osi td{border:1px solid #e1e6eb;padding:4px 6px;vertical-align:top;font-family:var(--mono);font-size:11.5px;width:50%}
+  .osi td.off{color:#a3acb7}
+  .expl{margin:10px 0 0;padding-left:18px;font-size:12.5px;line-height:1.45}
+  .fbox{border:1px solid #9aa4b1;margin-bottom:8px}
+  .fbox .fh{background:#eef1f4;padding:3px 8px;font-weight:600;font-size:12px;border-bottom:1px solid #9aa4b1}
+  .fbox .fg{display:grid;grid-template-columns:repeat(4,1fr)}
+  .fbox .fg div{border-right:1px solid #d5dbe2;border-bottom:1px solid #d5dbe2;padding:3px 6px;font-family:var(--mono);font-size:11px}
+  .fbox .fg div.w2{grid-column:span 2}.fbox .fg div.w4{grid-column:span 4;word-break:break-all;white-space:pre-wrap}
+  .fbox .fg small{display:block;color:var(--muted);font-family:"Segoe UI",sans-serif;font-size:10px}
+  .phone{width:250px;margin:0 auto;background:#111827;border-radius:26px;padding:14px 10px 18px}
+  .phone .scr{background:linear-gradient(#1e3a5f,#0f2238);border-radius:16px;min-height:330px;padding:12px 8px;color:#fff}
+  .phone .clk{text-align:center;font-size:34px;font-weight:300;margin:6px 0 12px}
+  .ntf{background:rgba(255,255,255,.92);color:#111;border-radius:10px;padding:7px 9px;margin-bottom:6px;font-size:12px}
+  .ntf b{display:block;font-size:12px}
+  .ntf small{color:#555}
+  .cap tr{cursor:pointer}
+  .cap tr:hover td{background:#eaf2ff}
+  .cap tr.sel td{background:#cfe0fb}
+  pre.ws{margin:0;background:#fbfbfb;border:1px solid var(--line);padding:8px;font-family:var(--mono);font-size:11.5px;white-space:pre-wrap;word-break:break-all;max-height:180px;overflow:auto;user-select:text}
+  @media (max-width:1400px){ .hint{display:none} }
+  @media (max-width:1350px){ .pal{display:none} .bottom{grid-template-columns:175px 1fr 250px 100px} }
+  @media (max-width:1150px){ .simpanel{width:320px} .bottom{grid-template-columns:165px 1fr 230px 96px} .titlebar .s{display:none} }
+  /* CLI */
+  .cli{border:1px solid #9aa4b1;background:#fff}
+  .cli pre{margin:0;height:310px;overflow:auto;padding:8px 10px 0;font-family:var(--mono);font-size:12.5px;line-height:1.35;white-space:pre;color:#111;user-select:text}
+  .cliin{display:flex;padding:0 10px 8px;font-family:var(--mono);font-size:12.5px;color:#111}
+  .cliin input{flex:1;border:none;outline:none;font-family:var(--mono);font-size:12.5px;padding:0 0 0 2px;background:transparent}
+  /* Paleta de dispositivos */
+  .pal{padding:4px 6px}
+  .pal-cats{display:flex;gap:2px;margin-bottom:3px}
+  .pal-cat{width:40px;height:34px;border:1px solid transparent;background:none;border-radius:3px;padding:0}
+  .pal-cat:hover{background:#e3e9f1}
+  .pal-cat.on{background:#dbe8fb;border-color:#6b9ae0}
+  .pal-name{font-size:11px;color:#3b4652;font-weight:600;margin:0 2px 3px}
+  .pal-items{display:flex;gap:4px;background:#fff;border:1px solid var(--line);padding:4px;min-height:74px}
+  .pal-item{width:58px;border:1px solid transparent;background:none;border-radius:3px;padding:2px 0;font-size:10.5px;line-height:1.15;color:var(--text)}
+  .pal-item:hover{background:#eaf2ff;border-color:#b9cdea}
+  .pal-foot{font-size:11px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  @keyframes devFlash{0%,100%{stroke-opacity:0}50%{stroke-opacity:1}}
+  .dev.flash .hl{stroke:#2563eb;stroke-width:3;stroke-dasharray:none;animation:devFlash .4s 4}
+  /* Herramienta PDU simple */
+  .ws.picking .dev{cursor:crosshair}
+  .tool-hint{position:absolute;right:8px;top:6px;z-index:3;background:#1f2933;color:#fff;font-size:12px;padding:4px 10px;border-radius:3px;display:none}
+  .tool-hint.on{display:block}
+</style>
+</head>
+<body>
+
+<div class="titlebar">
+  <span class="t">NET-EMU — camaras_niebla_salina.pkt</span>
+  <span class="s">Grupo 4 · UAI · Redes y Teleprocesamiento · Ing. Gabriel Fernández · ASTM B117 / ISO 9227 (35 °C ± 2 °C)</span>
+</div>
+
+<div class="toolbar">
+  <button class="tb on good" id="bAuto" onclick="toggleAuto()"><span class="dot live" id="autoDot"></span><span id="autoTxt">Auto-telemetría (4 s)</span></button>
+  <button class="tb" onclick="publishAll()">Publicar ahora</button>
+  <button class="tb" id="bPdu" onclick="startPduTool()" title="Elegí un origen y un destino para mandar un ping (ICMP)"><svg width="18" height="12" viewBox="-12 -8 24 16"><rect x="-11" y="-7" width="22" height="14" fill="#0ea5e9" stroke="#1f2933"/><polyline points="-11,-7 0,2 11,-7" fill="none" stroke="#1f2933"/></svg>Agregar PDU simple</button>
+  <span class="sep"></span>
+  <span class="seg">
+    <button class="tb warn on" id="b1883" onclick="setTLS(false)">TCP :1883 (claro)</button>
+    <button class="tb good" id="b8883" onclick="setTLS(true)">TLS :8883 (cifrado)</button>
+  </span>
+  <span class="sep"></span>
+  <button class="tb" id="bSound" onclick="toggleSound()">Audio sirena: OFF</button>
+  <button class="tb" onclick="muteSiren()">Silenciar sirena</button>
+  <button class="tb" id="bNtfy" onclick="openDev('phone');WIN.tab=1;renderWin()">Celular real (ntfy): OFF</button>
+  <button class="tb on" id="bIps" onclick="toggleIps()">Mostrar IPs</button>
+  <button class="tb" onclick="resetAll()">Reiniciar</button>
+  <span class="hint">Clic en un dispositivo para abrirlo · arrastrá para moverlo · clic en un evento para ver la PDU</span>
+</div>
+
+<div class="main">
+  <div class="ws" id="ws">
+    <div class="note" id="note"></div>
+    <div class="canvas">
+      <span class="ws-tag">Lógico · [Root] · VLAN 10 IoT</span>
+      <span class="tool-hint" id="toolHint"></span>
+      <svg id="topo" class="show-ip" viewBox="0 0 1240 600" preserveAspectRatio="xMidYMid meet">
+        <g id="gLinks"></g><g id="gLights"></g><g id="gDevs"></g><g id="gPkts"></g>
+      </svg>
+    </div>
+  </div>
+
+  <aside class="simpanel">
+    <div class="ph">Panel de simulación <small id="modeLbl">Tiempo real</small></div>
+    <div class="evwrap" id="evwrap">
+      <table class="ev">
+        <thead><tr><th>#</th><th>Tiempo (s)</th><th>Último disp.</th><th>En disp.</th><th>Tipo</th><th>Info</th></tr></thead>
+        <tbody id="evBody"></tbody>
+      </table>
+    </div>
+    <div class="simstat" id="simStat">Tiempo de simulación: 0.000 s · eventos: 0</div>
+    <div class="pctrl">
+      <button class="pbtn" id="pReset" title="Reiniciar simulación (borra eventos y PDUs en vuelo)" onclick="resetSim()">⏮</button>
+      <button class="pbtn" id="pPlay" title="Reproducir / pausar (barra espaciadora)" onclick="togglePlay()">▶</button>
+      <button class="pbtn" id="pStep" title="Capturar / avanzar un paso (→)" onclick="manualStep()">⏭</button>
+      <span style="font-size:12px;margin-left:8px">Velocidad</span>
+      <input type="range" id="speed" min="0.25" max="3" step="0.25" value="1" oninput="S.speed=+this.value" style="flex:1">
+    </div>
+    <div class="rtmask" id="rtMask">Modo tiempo real: las PDUs viajan solas y los eventos se registran igual. Pasá a <b>Simulación</b> para avanzar paso a paso.</div>
+    <div class="filters" id="filters">
+      <span style="font-weight:600;width:100%;font-size:11px;color:#3b4652">FILTROS DE EVENTOS VISIBLES</span>
+    </div>
+  </aside>
+</div>
+
+<div class="bottom">
+  <div class="bcell pal" id="pal"></div>
+  <div class="bcell">
+    <div class="bt">Reloj del laboratorio</div>
+    <div class="clock" id="clock">Sáb 02:00:00</div>
+    <div style="margin-top:8px">
+      <div class="kv"><span>Mensajes en el broker</span><b id="cMsg">0</b></div>
+      <div class="kv"><span>Retransmisiones</span><b id="cRetx">0</b></div>
+      <div class="kv"><span>Llamadas a la API</span><b id="cApi">0</b></div>
+      <div class="kv"><span>Alertas activas</span><b id="cAl">0</b></div>
+    </div>
+  </div>
+  <div class="bcell" style="overflow:auto">
+    <div class="bt">Guion de la demo (diap. 13) · PDUs de escenario</div>
+    <table class="sctable">
+      <thead><tr><th>Disparar</th><th>Último estado</th><th>Origen</th><th>Destino</th><th>Tipo</th><th>Color</th><th>Escenario</th></tr></thead>
+      <tbody id="scBody"></tbody>
+    </table>
+  </div>
+  <div class="bcell">
+    <div class="bt">Condiciones del enlace (diap. 10)</div>
+    <div class="rng"><span>Retardo<span class="imp lo">bajo</span></span><input type="range" id="rDelay" min="20" max="1500" step="20" value="60" oninput="setNet()"><b class="mono" id="vDelay">60 ms</b></div>
+    <div class="rng"><span>Jitter<span class="imp lo">bajo</span></span><input type="range" id="rJit" min="0" max="300" step="10" value="5" oninput="setNet()"><b class="mono" id="vJit">±5 ms</b></div>
+    <div class="rng"><span>Pérdida<span class="imp hi">alto</span></span><input type="range" id="rLoss" min="0" max="60" step="10" value="0" oninput="setNet()"><b class="mono" id="vLoss" style="color:var(--bad)">0 %</b></div>
+    <div style="font-size:11px;color:var(--muted);line-height:1.35;margin-top:4px">Con pérdida, QoS 0 se pierde; QoS 1/2 y HTTPS (TCP) retransmiten hasta el acuse.</div>
+  </div>
+  <div class="bcell modes">
+    <button class="mode on" id="mRT" onclick="setMode('realtime')"><span class="ic">⏱</span>Tiempo real</button>
+    <button class="mode" id="mSIM" onclick="setMode('simulation')"><span class="ic">⏯</span>Simulación</button>
+  </div>
+</div>
+
+<!-- Ventana de dispositivo -->
+<div class="win hidden" id="win" style="width:560px;left:calc(50% - 280px);top:90px">
+  <div class="wt" data-drag="win"><span id="winTitle">Dispositivo</span><button class="wx" onclick="closeWin()">✕</button></div>
+  <div class="wtabs" id="winTabs"></div>
+  <div class="wbody" id="winBody"></div>
+</div>
+
+<!-- Ventana PDU -->
+<div class="win hidden" id="pdu" style="width:680px;left:calc(50% - 340px);top:70px">
+  <div class="wt" data-drag="pdu"><span id="pduTitle">Información de la PDU</span><button class="wx" onclick="closePdu()">✕</button></div>
+  <div class="wtabs" id="pduTabs"></div>
+  <div class="wbody" id="pduBody"></div>
+</div>
+
+<script>
+// =====================================================================
+// TOPOLOGÍA
+// =====================================================================
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+const DEV = {
+  cam1:   {type:'sensor', name:'Cámara 1',  model:'SBC-PT + sonda',      x:110,  y:110, ip:'192.168.10.11'},
+  cam2:   {type:'sensor', name:'Cámara 2',  model:'SBC-PT + sonda',      x:110,  y:300, ip:'192.168.10.12'},
+  cam3:   {type:'sensor', name:'Cámara 3',  model:'SBC-PT + sonda',      x:110,  y:490, ip:'192.168.10.13'},
+  sirena: {type:'siren',  name:'Sirena',    model:'IoT Siren',           x:390,  y:90,  ip:'192.168.10.60'},
+  sw:     {type:'switch', name:'Switch0',   model:'2960-24TT',           x:390,  y:300},
+  sniffer:{type:'sniffer',name:'Sniffer0',  model:'Sniffer (puerto SPAN)',x:390, y:505},
+  broker: {type:'server', name:'Broker MQTT',model:'Server-PT · Mosquitto',x:640,y:130, ip:'192.168.10.100'},
+  monitor:{type:'pc',     name:'Monitor',   model:'PC-PT · app alertas', x:640,  y:470, ip:'192.168.10.50'},
+  r1:     {type:'router', name:'R1',        model:'ISR4331 · NAT',       x:830,  y:300, ip:'192.168.10.1', wan:'200.45.10.2'},
+  inet:   {type:'cloud',  name:'Internet',  model:'Cloud-PT · ISP',      x:1000, y:300},
+  api:    {type:'server', name:'API Alertas',model:'Server-PT · Node/Express',x:1140,y:130, ip:'200.45.80.20', host:'api.labniebla.com.ar'},
+  phone:  {type:'phone',  name:'Celular responsable',model:'Smartphone-PT',x:1140,y:470, ip:'10.64.12.7'}
+};
+for (const k in DEV) DEV[k].id = k;
+
+const MAC = {cam1:'0060.5C11.0A11',cam2:'0060.5C11.0A12',cam3:'0060.5C11.0A13',sirena:'0060.5C11.0A60',
+  broker:'00D0.BA8E.1100',monitor:'0001.6432.5050',r1lan:'0030.F2A1.0001',r1wan:'0030.F2A1.0002',
+  inet:'00E0.B0C4.6601',api:'0005.5E80.2020',phone:'(radio LTE)',sniffer:'0090.21AA.0024',sw:'0001.C7D2.1A00'};
+
+// [a, b, puerto en a, puerto en b, inalámbrico]
+const LINKS = [
+  ['cam1','sw','Fa0','Fa0/1'], ['cam2','sw','Fa0','Fa0/2'], ['cam3','sw','Fa0','Fa0/3'],
+  ['sirena','sw','Fa0','Fa0/4'], ['sniffer','sw','Fa0','Fa0/24'],
+  ['broker','sw','Fa0','Fa0/10'], ['monitor','sw','Fa0','Fa0/11'],
+  ['sw','r1','Gi0/1','Gi0/0/1'], ['r1','inet','Gi0/0/0','Eth6'],
+  ['inet','api','Eth1','Fa0'], ['inet','phone','LTE','LTE0', true]
+];
+
+const C = { icmp:'#0ea5e9', connect:'#8b5cf6', connack:'#22c55e', publish:'#3b82f6', fwd:'#6366f1', puback:'#facc15',
+  alert:'#ef4444', lwt:'#f97316', qos2:'#a855f7', http:'#10b981', resp:'#86efac', push:'#ec4899',
+  siren:'#dc2626', retx:'#f59e0b' };
+
+// =====================================================================
+// ESTADO
+// =====================================================================
+const S = {
+  mode:'realtime', playing:true, speed:1, tls:false, delay:60, jitter:5, loss:0,
+  autoTel:true, sound:false, muted:false, showIps:true,
+  simTime:0, clock:7200, msgId:100, msgCount:0, retx:0, apiCalls:0, alertSeq:400,
+  cams:{}, retain:{}, alerts:{}, sirenCmd:false, siren:false,
+  pending:[], inflight:[], events:[], evSel:null,
+  filters:{MQTT:true, TLS:true, HTTPS:true, PUSH:true, ICMP:true},
+  cli:{}, pduTool:null, userPdus:[], upSeq:0,
+  sc:{}, notifs:[], unread:0, apiLog:[], cap:[], capSel:null, macTable:{}, nat:{},
+  monLast:null, monRx:0, note:null,
+  ntfy:{on:false, topic:'', last:'todavía no se envió nada'}
+};
+(function(){
+  let t=null, on=false;
+  try { t=localStorage.getItem('ntfyTopic'); on=localStorage.getItem('ntfyOn')==='1'; } catch(e){}
+  if (!t) t = 'niebla-g4-' + Math.random().toString(36).slice(2,10);
+  S.ntfy.topic=t; S.ntfy.on=on;
+  try { localStorage.setItem('ntfyTopic', t); } catch(e){}
+})();
+function initCams(){
+  S.cams = {
+    1:{id:1,name:'camara1',user:'sensor1',temp:35.2,online:true},
+    2:{id:2,name:'camara2',user:'sensor2',temp:34.8,online:true},
+    3:{id:3,name:'camara3',user:'sensor3',temp:35.1,online:true}
+  };
+  S.retain = {1:{temp:35.2,online:true},2:{temp:34.8,online:true},3:{temp:35.1,online:true}};
+}
+initCams();
+const isOut = t => t < 33 || t > 37;
+const horaStr = () => { const s=S.clock; return [Math.floor(s/3600)%24, Math.floor(s/60)%60, s%60].map(n=>String(n).padStart(2,'0')).join(':'); };
+
+// =====================================================================
+// ÍCONOS
+// =====================================================================
+function icon(d){
+  const B='#2f7bbf', BD='#1d4f7a';
+  switch(d.type){
+    case 'sensor': return `
+      <rect x="-30" y="-22" width="52" height="40" rx="3" fill="#dfe6ee" stroke="#7b8794"/>
+      <rect x="-25" y="-17" width="42" height="24" rx="2" fill="#c7d6e6" stroke="#7b8794"/>
+      <circle cx="-17" cy="-5" r="3" fill="#94a3b8"/><circle cx="-7" cy="-5" r="3" fill="#94a3b8"/><circle cx="3" cy="-5" r="3" fill="#94a3b8"/>
+      <rect x="-25" y="10" width="20" height="5" fill="${B}" stroke="${BD}"/>
+      <rect x="22" y="-26" width="8" height="34" rx="4" fill="#fff" stroke="#475569"/>
+      <rect id="merc-${d.id}" x="24.5" y="-12" width="3" height="18" fill="#16a34a"/>
+      <circle id="bulb-${d.id}" cx="26" cy="11" r="6" fill="#16a34a" stroke="#475569"/>`;
+    case 'switch': return `
+      <rect x="-32" y="-14" width="64" height="28" rx="3" fill="${B}" stroke="${BD}"/>
+      <path d="M-20 -5 H14 M8 -9 L14 -5 L8 -1 M20 5 H-14 M-8 1 L-14 5 L-8 9" stroke="#fff" stroke-width="2" fill="none"/>`;
+    case 'router': return `
+      <rect x="-28" y="-6" width="56" height="16" fill="${BD}"/>
+      <ellipse cx="0" cy="10" rx="28" ry="9" fill="${BD}"/>
+      <ellipse cx="0" cy="-6" rx="28" ry="9" fill="${B}" stroke="${BD}"/>
+      <path d="M-14 -6 H14 M0 -12 V0 M10 -9 L14 -6 L10 -3 M-10 -9 L-14 -6 L-10 -3" stroke="#fff" stroke-width="1.8" fill="none"/>`;
+    case 'server': return `
+      <rect x="-18" y="-26" width="36" height="52" rx="3" fill="${B}" stroke="${BD}"/>
+      <rect x="-12" y="-19" width="24" height="5" fill="#cfe2f5"/><rect x="-12" y="-10" width="24" height="5" fill="#cfe2f5"/><rect x="-12" y="-1" width="24" height="5" fill="#cfe2f5"/>
+      <circle cx="9" cy="16" r="2.5" fill="#4ade80"/>`;
+    case 'pc': return `
+      <rect x="-26" y="-24" width="52" height="36" rx="3" fill="${B}" stroke="${BD}"/>
+      <rect x="-21" y="-19" width="42" height="26" fill="#d6e9fb"/>
+      <polyline points="-17,1 -9,-6 -2,-1 6,-12 16,-4" fill="none" stroke="#1d4f7a" stroke-width="1.6"/>
+      <rect x="-5" y="12" width="10" height="7" fill="${BD}"/><rect x="-15" y="19" width="30" height="4" rx="1" fill="${BD}"/>`;
+    case 'cloud': return `
+      <path d="M-34 14 C-50 14 -50 -10 -32 -8 C-30 -26 -6 -30 2 -16 C10 -28 32 -24 32 -8 C48 -8 48 14 32 14 Z" fill="#fff" stroke="#64748b" stroke-width="2"/>
+      <text x="0" y="5" text-anchor="middle" font-size="10" fill="#64748b">ISP</text>`;
+    case 'phone': return `
+      <rect x="-15" y="-27" width="30" height="54" rx="6" fill="#1f2937"/>
+      <rect x="-11" y="-21" width="22" height="38" rx="2" fill="#d6e9fb"/>
+      <circle cx="0" cy="22" r="2" fill="#6b7280"/>
+      <g id="pbadge" style="display:none"><circle cx="15" cy="-25" r="9" fill="#ef4444" stroke="#fff" stroke-width="1.5"/><text id="pbadgeT" x="15" y="-21.5" text-anchor="middle" font-size="10" font-weight="700" fill="#fff">1</text></g>`;
+    case 'siren': return `
+      <circle id="sirenHalo" cx="0" cy="-2" r="30" fill="#ef4444" opacity="0"/>
+      <path id="sirenDome" d="M-17 8 A17 17 0 0 1 17 8 Z" fill="#94a3b8" stroke="#475569"/>
+      <rect x="-22" y="8" width="44" height="9" rx="2" fill="#475569"/>`;
+    case 'sniffer': return `
+      <rect x="-26" y="-18" width="52" height="36" rx="3" fill="${B}" stroke="${BD}"/>
+      <circle cx="-3" cy="-2" r="9" fill="none" stroke="#fff" stroke-width="2.5"/>
+      <path d="M4 5 L13 13" stroke="#fff" stroke-width="3"/>`;
+  }
+}
+
+function drawDevices(){
+  const g = $('gDevs'); g.innerHTML='';
+  for (const k in DEV){
+    const d = DEV[k];
+    const el = document.createElementNS('http://www.w3.org/2000/svg','g');
+    el.setAttribute('class','dev'); el.setAttribute('transform',`translate(${d.x},${d.y})`); el.dataset.id=k;
+    let extra = '';
+    if (d.type==='sensor') extra = `<g transform="translate(36,-26)"><rect id="tb-${k}" x="0" y="0" width="58" height="19" rx="2" fill="#ecfdf3" stroke="#86d3a0"/><text id="tt-${k}" x="29" y="13.5" text-anchor="middle" font-size="12" font-weight="700" font-family="Consolas,monospace" fill="#166534">35.2 °C</text></g>`;
+    const ip = d.type==='router' ? `${d.ip} / ${d.wan}` : (d.host ? `${d.ip} · ${d.host}` : d.ip);
+    el.innerHTML = `<rect class="hl" x="-46" y="-34" width="92" height="68" fill="transparent" stroke="none"/>${icon(d)}${extra}
+      <text class="lbl-name" x="0" y="44" text-anchor="middle">${esc(d.name)}</text>
+      <text class="lbl-model" x="0" y="57" text-anchor="middle">${esc(d.model)}</text>
+      ${ip ? `<text class="lbl-ip" x="0" y="70" text-anchor="middle">${esc(ip)}</text>`:''}`;
+    g.appendChild(el);
+    attachDrag(el, k);
+  }
+}
+
+function linkUp(l){
+  for (const n of [1,2,3]) if ((l[0]===`cam${n}`||l[1]===`cam${n}`) && !S.cams[n].online) return false;
+  return true;
+}
+function drawLinks(){
+  const g = $('gLinks'), gl = $('gLights'); g.innerHTML=''; gl.innerHTML='';
+  for (const l of LINKS){
+    const A = DEV[l[0]], B = DEV[l[1]], up = linkUp(l);
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',A.x); line.setAttribute('y1',A.y); line.setAttribute('x2',B.x); line.setAttribute('y2',B.y);
+    line.setAttribute('stroke', l[4] ? '#7c8b9c' : (up ? '#1f2933' : '#b91c1c'));
+    line.setAttribute('stroke-width', l[4] ? 1.5 : 1.8);
+    if (l[4]) line.setAttribute('stroke-dasharray','5 5');
+    if (!up) line.setAttribute('stroke-dasharray','7 5');
+    g.appendChild(line);
+    if (l[4]) continue;
+    // luces de enlace (triángulos) en ambos extremos
+    const dx=B.x-A.x, dy=B.y-A.y, len=Math.hypot(dx,dy), ux=dx/len, uy=dy/len;
+    const ang = Math.atan2(dy,dx)*180/Math.PI;
+    [[A, 1, 52], [B, -1, 52]].forEach(([P, dir, dist]) => {
+      const x = P.x + ux*dist*dir, y = P.y + uy*dist*dir;
+      const t = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+      t.setAttribute('points','-5,-4 5,0 -5,4');
+      t.setAttribute('transform',`translate(${x},${y}) rotate(${dir>0?ang:ang+180})`);
+      t.setAttribute('fill', up ? '#16a34a' : '#dc2626');
+      gl.appendChild(t);
+      // etiqueta del puerto
+    });
+  }
+}
+
+// ---- Arrastrar dispositivos / abrir ventana ----
+function svgPoint(evt){
+  const svg=$('topo'), pt=svg.createSVGPoint(); pt.x=evt.clientX; pt.y=evt.clientY;
+  return pt.matrixTransform(svg.getScreenCTM().inverse());
+}
+function attachDrag(el, id){
+  el.addEventListener('pointerdown', e => {
+    const start = svgPoint(e), d = DEV[id], ox=d.x, oy=d.y; let moved=false;
+    el.setPointerCapture(e.pointerId);
+    const mv = ev => { const p=svgPoint(ev); const nx=ox+p.x-start.x, ny=oy+p.y-start.y;
+      if (!moved && Math.hypot(p.x-start.x,p.y-start.y) < 4) return; moved=true;
+      d.x=Math.max(40,Math.min(1200,nx)); d.y=Math.max(40,Math.min(560,ny));
+      el.setAttribute('transform',`translate(${d.x},${d.y})`); drawLinks(); layoutWaiting(); };
+    const up = () => { el.removeEventListener('pointermove',mv); el.removeEventListener('pointerup',up); if(!moved){ if (S.pduTool) pduPick(id); else openDev(id); } };
+    el.addEventListener('pointermove',mv); el.addEventListener('pointerup',up);
+  });
+}
+
+// =====================================================================
+// MOTOR DE SIMULACIÓN (PDUs salto a salto)
+// =====================================================================
+function neighbors(n){ const r=[]; for (const l of LINKS){ if(l[0]===n) r.push(l[1]); else if(l[1]===n) r.push(l[0]); } return r; }
+function route(a,b){
+  const prev={[a]:null}, q=[a];
+  while(q.length){ const n=q.shift(); if(n===b) break;
+    for (const m of neighbors(n)) if(!(m in prev) && m!=='sniffer'){ prev[m]=n; q.push(m); } }
+  if(!(b in prev)) return null;
+  const p=[]; for(let n=b;n!==null;n=prev[n]) p.unshift(n); return p;
+}
+function linkOf(a,b){ return LINKS.find(l => (l[0]===a&&l[1]===b)||(l[0]===b&&l[1]===a)); }
+function portOn(dev, other){ const l=linkOf(dev,other); if(!l) return '—'; return l[0]===dev ? l[2] : l[3]; }
+const segOf = (a,b) => (a==='inet'||b==='inet') ? 'wan' : 'lan';
+const macOf = (dev, seg) => dev==='r1' ? (seg==='wan'?MAC.r1wan:MAC.r1lan) : MAC[dev];
+const ipView = (ip, seg) => (seg==='wan' && ip.startsWith('192.168.')) ? DEV.r1.wan : ip;
+
+let PID=0, EVN=0, busy=0, stepTimer=null, EPOCH=0;
+
+function send(spec){
+  const path = route(spec.from, spec.to);
+  if(!path) return null;
+  const p = Object.assign({ id:++PID, i:0, path, tries:0, srcIp:DEV[spec.from].ip, dstIp:DEV[spec.to].ip }, spec);
+  p.spec = spec;
+  p.len = 54 + (p.payload ? p.payload.length : 4) + (p.tls ? 29 : 0);
+  p.el = makeEnv(p);
+  S.pending.push(p);
+  layoutWaiting();
+  kick();
+  return p;
+}
+
+function makeEnv(p){
+  const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+  g.innerHTML = `<rect x="-12" y="-8" width="24" height="16" rx="1.5" fill="${p.color}" stroke="#1f2933" stroke-width="1"/>
+    <polyline points="-12,-8 0,2 12,-8" fill="none" stroke="#1f2933" stroke-width="1"/>
+    ${p.tls ? '<rect x="7" y="2" width="6" height="5" fill="#111" /><path d="M8.2 2 v-2 a1.8 1.8 0 0 1 3.6 0 v2" fill="none" stroke="#111" stroke-width="1"/>' : ''}`;
+  g.style.cursor='default';
+  $('gPkts').appendChild(g);
+  return g;
+}
+function layoutWaiting(){
+  const cnt={};
+  for (const p of [...S.inflight, ...S.pending]){
+    const d=p.path[p.i], k=(cnt[d]=(cnt[d]||0)+1)-1, D=DEV[d];
+    p.el.setAttribute('transform',`translate(${D.x+24+k*7},${D.y-30-k*5})`);
+  }
+}
+function animMs(){
+  if (S.mode==='realtime') return 380*(1+S.delay/1200) + Math.random()*S.jitter*0.6;
+  return 700 / S.speed;
+}
+function kick(){
+  if (stepTimer || busy) return;
+  if (!S.pending.length && !S.inflight.length) return;
+  if (S.mode==='realtime') stepTimer=setTimeout(go, 30);
+  else if (S.playing) stepTimer=setTimeout(go, 280/S.speed);
+}
+function go(){ stepTimer=null; step(); }
+function step(){
+  if (busy) return;
+  const batch = S.inflight.concat(S.pending); S.inflight=[]; S.pending=[];
+  if (!batch.length) return;
+  S.simTime += (S.delay + Math.random()*S.jitter)/1000;
+  batch.forEach(hop);
+  ui();
+}
+function manualStep(){ if (S.mode==='simulation' && !busy){ if(stepTimer){clearTimeout(stepTimer);stepTimer=null;} step(); } }
+
+function hop(p){
+  const a=p.path[p.i], b=p.path[p.i+1], l=linkOf(a,b);
+  let reason=null;
+  if (!linkUp(l)) reason='enlace caído (cable desconectado)';
+  else if ((a==='sw'||b==='sw') && Math.random()*100 < S.loss) reason='pérdida en el enlace (VLAN 10)';
+  busy++;
+  const A=DEV[a], B=DEV[b], dur=animMs(), t0=performance.now(), frac = reason?0.5:1;
+  const sx=A.x, sy=A.y-6, ex=B.x, ey=B.y-6;
+  const epoch=EPOCH; let finished=false;
+  const f = now => {
+    if (finished) return;
+    const k=Math.min(1,(now-t0)/dur), e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
+    p.el.setAttribute('transform',`translate(${sx+(ex-sx)*e*frac},${sy+(ey-sy)*e*frac})`);
+    if (k<1) requestAnimationFrame(f); else done();
+  };
+  const done = () => {
+    if (finished) return; finished=true;
+    busy--;
+    if (epoch!==EPOCH){ p.el.remove(); if(busy===0){ layoutWaiting(); kick(); } return; }
+    p.el.setAttribute('transform',`translate(${sx+(ex-sx)*frac},${sy+(ey-sy)*frac})`);
+    logEvent(p, a, b, reason);
+    if (b==='sw' && !reason) onSwitch(p);
+    if (b==='r1' && !reason) onRouter(p);
+    if (reason){
+      markDrop(p);
+      const reliable = (p.proto==='HTTPS'||p.proto==='PUSH') || (p.proto==='MQTT' && p.qos>=1);
+      if (reliable && !reason.startsWith('enlace') && p.tries < 4){
+        S.retx++;
+        const again = send(Object.assign({}, p.spec, {dup:true}));
+        if (again) again.tries = p.tries+1;
+      } else {
+        if (p.flow) scFail(p.flow);
+        if (p.onLost) p.onLost(p);
+      }
+    } else {
+      p.i++;
+      if (p.i === p.path.length-1){ markArrive(p); if(p.onArrive) p.onArrive(p); }
+      else S.inflight.push(p);
+    }
+    if (busy===0){ layoutWaiting(); ui(); kick(); }
+  };
+  requestAnimationFrame(f);
+  setTimeout(done, dur+80); // por si la pestaña está en segundo plano
+}
+function markDrop(p){
+  p.el.insertAdjacentHTML('beforeend','<path d="M-11 -11 L11 11 M11 -11 L-11 11" stroke="#dc2626" stroke-width="4"/>');
+  setTimeout(()=>p.el.remove(), S.mode==='realtime'?900:1600);
+}
+function markArrive(p){
+  p.el.innerHTML = '<circle r="9" fill="#16a34a" stroke="#fff" stroke-width="1.5"/><path d="M-4 0 L-1 3.5 L5 -3.5" stroke="#fff" stroke-width="2.2" fill="none"/>';
+  setTimeout(()=>p.el.remove(), S.mode==='realtime'?450:1100);
+}
+
+// Tablas aprendidas por los equipos intermedios
+function hdr(p, i){
+  const a=p.path[i], b=p.path[i+1], seg=segOf(a,b);
+  let k=i; while(p.path[k]==='sw') k--;
+  let m=i+1; while(p.path[m]==='sw') m++;
+  let ttl=64; for(let j=1;j<=i;j++) if(p.path[j]==='r1'||p.path[j]==='inet') ttl--;
+  return { a, b, seg, inPort:portOn(b,a), outPortA:portOn(a,b),
+    srcMac: macOf(p.path[k],seg), dstMac: macOf(p.path[m],seg),
+    srcIp: ipView(p.srcIp,seg), dstIp: ipView(p.dstIp,seg), ttl,
+    vlan: seg==='lan' };
+}
+function onSwitch(p){
+  const h = hdr(p, p.i-1);
+  S.macTable[h.srcMac] = {port:h.inPort, vlan:10};
+  if (S.cap.length > 250) S.cap.shift();
+  S.cap.push({no:S.cap.length? S.cap[S.cap.length-1].no+1 : 1, t:S.simTime, src:h.srcIp, dst:h.dstIp, proto:typeOf(p), len:p.len, info:infoOf(p), p});
+}
+function onRouter(p){
+  const h = hdr(p, p.i-1);
+  const next = p.path[p.i+1];
+  if (h.seg==='lan' && next==='inet' && p.srcIp.startsWith('192.168.')){
+    const key=`${p.srcIp}:${p.sport}`;
+    S.nat[key] = {proto:'tcp', il:key, ig:`${DEV.r1.wan}:${p.sport}`, og:`${p.dstIp}:${p.dport}`};
+  }
+}
+
+// =====================================================================
+// LISTA DE EVENTOS
+// =====================================================================
+const typeOf = p => p.proto==='MQTT' ? (p.tls?'TLS':'MQTT') : p.proto;
+const infoOf = p => {
+  if (p.proto==='MQTT') return `${p.kind}${p.qos!=null && p.kind==='PUBLISH' ? ' Q'+p.qos : ''}${p.dup?' (DUP)':''}${p.lwt?' · LWT':''}`;
+  return p.kind + (p.dup?' (retx)':'');
+};
+function logEvent(p, a, b, reason){
+  const ev = {n:++EVN, t:S.simTime, a, b, p, i:p.i, drop:reason};
+  S.events.push(ev);
+  const body=$('evBody');
+  if (S.events.length > 500){ S.events.shift(); body.firstChild && body.removeChild(body.firstChild); }
+  const tr=document.createElement('tr');
+  tr.className='r'+(reason?' drop':''); tr.dataset.n=ev.n; tr.dataset.t=typeOf(p);
+  tr.innerHTML = `<td>${ev.n}</td><td class="mono">${ev.t.toFixed(3)}</td><td>${esc(DEV[a].name)}</td><td>${esc(DEV[b].name)}</td><td>${typeOf(p)}</td><td><span class="sq" style="background:${p.color}"></span>${esc(reason? '✕ descartada' : infoOf(p))}</td>`;
+  tr.onclick = () => openPdu(ev.n);
+  if (!S.filters[typeOf(p)]) tr.style.display='none';
+  body.appendChild(tr);
+  const w=$('evwrap'); w.scrollTop = w.scrollHeight;
+}
+function applyFilters(){
+  for (const tr of $('evBody').children) tr.style.display = S.filters[tr.dataset.t] ? '' : 'none';
+}
+function buildFilters(){
+  const f=$('filters');
+  for (const k of Object.keys(S.filters)){
+    const lab=document.createElement('label');
+    lab.innerHTML=`<input type="checkbox" checked> ${k}`;
+    lab.querySelector('input').onchange = e => { S.filters[k]=e.target.checked; applyFilters(); };
+    f.appendChild(lab);
+  }
+}
+
+// =====================================================================
+// CONSTRUCTORES DE PDUs (MQTT / HTTPS / PUSH)
+// =====================================================================
+const eph = dev => 49152 + ([...dev].reduce((s,c)=>s+c.charCodeAt(0),0)*37)%9000;
+
+function mq(from, to, kind, o={}){
+  const tls=S.tls, port=tls?8883:1883;
+  const sp = {from,to,proto:'MQTT',tls,kind,qos:o.qos??null,topic:o.topic,payload:o.payload,pid:o.pid,flow:o.flow,
+    color:o.color||C.publish,onArrive:o.onArrive,onLost:o.onLost,dup:o.dup,lwt:o.lwt,
+    sport: to==='broker'? eph(from) : port, dport: to==='broker'? port : eph(to), dscp:'CS3 (24)'};
+  if (kind==='CONNECT'){
+    const c=o.cam;
+    sp.payload = `client_id=${c.name} user=${c.user}`;
+    sp.l7 = [['Versión','MQTT 3.1.1 (nivel 4)'],['Client ID',c.name],['Usuario',c.user],['Contraseña','lab1234'],
+      ['Keep Alive','30 s'],['Clean Session','1'],['Will Topic',`lab/niebla/${c.name}/estado`],['Will Message','"offline"'],['Will QoS / Retain','1 / 1']];
+  } else if (kind==='CONNACK'){
+    sp.l7 = [['Session Present','0'],['Return Code','0 (Connection Accepted)']];
+  } else if (kind==='PUBLISH'){
+    sp.l7 = [['Topic',o.topic],['QoS',String(o.qos)],['Retain',o.retain===false?'0':'1'],['DUP',o.dup?'1':'0']];
+    if (o.qos>0) sp.l7.push(['Packet ID',String(o.pid)]);
+    if (o.lwt) sp.l7.push(['Origen','Will Message publicado por el broker en nombre del sensor']);
+    sp.l7.push(['Payload',o.payload]);
+  } else {
+    sp.l7 = [['Packet ID',String(o.pid)]];
+  }
+  sp.l7title = `MQTT ${kind}${kind==='PUBLISH'?` (QoS ${o.qos})`:''} · encabezado fijo 2 bytes`;
+  sp.spec = sp;
+  return send(sp);
+}
+function http(from, to, method, url, body, o={}){
+  const sp = {from,to,proto:'HTTPS',tls:true,kind:`${method} ${url}`,payload:body,flow:o.flow,color:o.color||C.http,
+    onArrive:o.onArrive, sport:eph(from), dport:443, dscp:'AF21 (18)', qos:null,
+    l7title:`HTTP/1.1 ${method} ${url}`,
+    l7:[['Host',DEV.api.host],['Content-Type','application/json'],['Authorization','Bearer eyJhbGciOiJIUzI1NiJ9…'],['User-Agent','monitor-niebla/1.4'],['Body',body||'(vacío)']]};
+  return send(sp);
+}
+function httpResp(from, to, status, body, o={}){
+  const sp = {from,to,proto:'HTTPS',tls:true,kind:status,payload:body,flow:o.flow,color:C.resp,onArrive:o.onArrive,
+    sport:443, dport:eph(to), dscp:'AF21 (18)', qos:null, l7title:`HTTP/1.1 ${status}`,
+    l7:[['Content-Type','application/json; charset=utf-8'],['X-Response-Time',`${8+Math.floor(Math.random()*12)} ms`],['Body',body]]};
+  return send(sp);
+}
+function push(from, to, title, body, o={}){
+  const sp = {from,to,proto:'PUSH',tls:true,kind:'Notificación push',payload:`${title} — ${body}`,flow:o.flow,color:C.push,
+    onArrive:o.onArrive, sport:443, dport:5228, dscp:'BE (0)', qos:null, l7title:'Push (HTTP/2 + TLS) → app del celular',
+    l7:[['Prioridad','high'],['Título',title],['Cuerpo',body],['Canal','alertas_laboratorio']]};
+  return send(sp);
+}
+
+// =====================================================================
+// LÓGICA MQTT + ENDPOINTS
+// =====================================================================
+function publishFromCamera(id, forceQoS=null, flow=null){
+  const cam=S.cams[id]; if(!cam.online) return;
+  const out=isOut(cam.temp), qos = forceQoS ?? (out?1:0);
+  const topic=`lab/niebla/${cam.name}/temperatura`;
+  const payload=JSON.stringify({temp:+cam.temp.toFixed(1), hora:horaStr()});
+  const temp=cam.temp, pid = qos>0 ? ++S.msgId : null;
+  mq(`cam${id}`,'broker','PUBLISH',{qos,topic,payload,pid,flow,color: out?C.alert:C.publish,
+    onArrive:()=>{
+      S.msgCount++; S.retain[id]={temp,online:true};
+      if (qos===1) mq('broker',`cam${id}`,'PUBACK',{pid,qos:1,color:C.puback});
+      const pid2 = qos>0 ? ++S.msgId : null;
+      mq('broker','monitor','PUBLISH',{qos,topic,payload,pid:pid2,flow,color: out?C.alert:C.fwd,
+        onArrive:()=>{ if(qos===1) mq('monitor','broker','PUBACK',{pid:pid2,qos:1,color:C.puback});
+          monitorRx({cam:id,kind:'reading',temp,topic,payload,qos,flow}); }});
+      ui();
+    }});
+}
+function publishAll(flow=null){ [1,2,3].forEach(id=>publishFromCamera(id,null,flow)); }
+
+function monitorRx(m){
+  S.monLast=m; S.monRx++;
+  const id=m.cam, a=S.alerts[id];
+  if (m.kind==='reading'){
+    if ((m.flow===2 || m.flow===6)) scTick(m.flow);
+    const out=isOut(m.temp);
+    if (out && !a) createAlert(id,'temperatura',m.temp,m.flow);
+    else if (out && a) { a.motivo='temperatura'; a.temp=m.temp; }
+    else if (!out && a) resolveAlert(id,m.flow);
+  } else if (m.kind==='lwt'){
+    if (!a) createAlert(id,'offline',null,m.flow);
+  } else if (m.kind==='registro'){
+    S.apiCalls++;
+    http('monitor','api','POST','/api/v1/ensayos/registro',m.payload,{flow:m.flow,color:C.qos2,onArrive:()=>{
+      const rid='ENS-'+(1200+S.apiCalls);
+      apiLog('POST','/api/v1/ensayos/registro',201);
+      httpResp('api','monitor','201 Created',JSON.stringify({id:rid,lote:'A-402',estado:'registrado'}),{flow:m.flow,onArrive:()=>{ if(m.flow===5) scTick(5); }});
+    }});
+  }
+  syncSiren(); ui();
+}
+
+function createAlert(id, motivo, temp, flow){
+  const cam=S.cams[id], a={motivo,temp,id:null,status:'enviando'};
+  S.alerts[id]=a; S.apiCalls++;
+  const body=JSON.stringify({camara:cam.name, motivo: motivo==='offline'?'sensor_offline':'temperatura_fuera_de_rango',
+    temp: temp==null?null:+temp.toFixed(1), rango:'33.0-37.0', hora:horaStr()});
+  http('monitor','api','POST','/api/v1/alertas',body,{flow,color:C.http,onArrive:()=>{
+    const aid='ALR-'+(++S.alertSeq);
+    apiLog('POST','/api/v1/alertas',201);
+    httpResp('api','monitor','201 Created',JSON.stringify({id:aid,estado:'activa'}),{flow,onArrive:()=>{
+      a.id=aid; a.status='activa';
+      if (a.resolvePending) sendPatch(id,a,flow);
+      ui();
+    }});
+    const title = motivo==='offline' ? `Cámara ${id} sin conexión` : `Cámara ${id} fuera de rango`;
+    const txt = motivo==='offline' ? `Last Will "offline" · ${horaStr()}` : `${temp.toFixed(1)} °C (tolerancia 33–37 °C) · ${horaStr()}`;
+    push('api','phone',title,txt,{flow,onArrive:()=>{
+      S.notifs.unshift({title,txt,hora:horaStr(),bad:true}); S.unread++; ntfySend(title, txt, true);
+      if (flow===3||flow===4) scTick(flow); ui();
+    }});
+  }});
+}
+function resolveAlert(id, flow){
+  const a=S.alerts[id]; delete S.alerts[id];
+  if (a.id) sendPatch(id,a,flow); else a.resolvePending=true;
+}
+function sendPatch(id, a, flow){
+  S.apiCalls++;
+  http('monitor','api','PATCH',`/api/v1/alertas/${a.id}`,JSON.stringify({estado:'resuelta',temp:+S.cams[id].temp.toFixed(1),hora:horaStr()}),{flow,onArrive:()=>{
+    apiLog('PATCH',`/api/v1/alertas/${a.id}`,200);
+    httpResp('api','monitor','200 OK',JSON.stringify({id:a.id,estado:'resuelta'}),{flow});
+    push('api','phone',`Cámara ${id} normalizada`,`Alerta ${a.id} resuelta · ${horaStr()}`,{flow,onArrive:()=>{
+      S.notifs.unshift({title:`Cámara ${id} normalizada`,txt:`Alerta ${a.id} resuelta`,hora:horaStr(),bad:false}); S.unread++;
+      ntfySend(`Cámara ${id} normalizada`, `Alerta ${a.id} resuelta · ${horaStr()}`, false); ui(); }});
+  }});
+}
+function syncSiren(){
+  const want = Object.keys(S.alerts).length>0;
+  if (want===S.sirenCmd) return;
+  S.sirenCmd=want;
+  const topic='lab/niebla/sirena/cmd', payload=want?'ON':'OFF', pid=++S.msgId;
+  mq('monitor','broker','PUBLISH',{qos:1,topic,payload,pid,color:C.siren,onArrive:()=>{
+    S.msgCount++;
+    mq('broker','monitor','PUBACK',{pid,qos:1,color:C.puback});
+    const pid2=++S.msgId;
+    mq('broker','sirena','PUBLISH',{qos:1,topic,payload,pid:pid2,color:C.siren,onArrive:()=>{
+      setSiren(payload==='ON');
+      mq('sirena','broker','PUBACK',{pid:pid2,qos:1,color:C.puback});
+    }});
+  }});
+}
+function setSiren(on){ S.siren=on; if(on) S.muted=false; sirenAudio(on && S.sound && !S.muted); ui(); }
+
+function apiLog(method, url, status){
+  S.apiLog.push({hora:horaStr(), method, url, status, ms:6+Math.floor(Math.random()*18)});
+  if (S.apiLog.length>80) S.apiLog.shift();
+}
+
+function setTemp(id, v){ S.cams[id].temp = Math.round(parseFloat(v)*10)/10; ui(); }
+
+function toggleCable(id, flow=null){
+  const cam=S.cams[id];
+  cam.online=!cam.online; drawLinks();
+  if (!cam.online){
+    S.retain[id]={temp:cam.temp,online:false};
+    const topic=`lab/niebla/${cam.name}/estado`, pid=++S.msgId;
+    mq('broker','monitor','PUBLISH',{qos:1,topic,payload:'offline',pid,lwt:true,flow,color:C.lwt,
+      onArrive:()=>{ mq('monitor','broker','PUBACK',{pid,qos:1,color:C.puback}); monitorRx({cam:id,kind:'lwt',flow}); }});
+  } else {
+    mq(`cam${id}`,'broker','CONNECT',{cam,flow,color:C.connect,onArrive:()=>{
+      mq('broker',`cam${id}`,'CONNACK',{flow,color:C.connack,onArrive:()=>publishFromCamera(id,null,flow)});
+    }});
+  }
+  ui();
+}
+
+// =====================================================================
+// ESCENARIOS (guion de la diapositiva 13)
+// =====================================================================
+const SC = [
+  {n:1,name:'Conexión CONNECT / CONNACK (usuario, clave y Last Will)',src:'Cámaras 1–3',dst:'Broker MQTT',type:'MQTT',color:C.connect,need:3,
+   note:'Las 3 cámaras envían CONNECT con usuario/clave y Last Will configurado; el broker valida credenciales (ACL) y responde CONNACK.'},
+  {n:2,name:'Lecturas normales 35 ± 2 °C (QoS 0)',src:'Cámaras 1–3',dst:'Monitor',type:'MQTT',color:C.publish,need:3,
+   note:'Las 3 cámaras están dentro de 35 °C ± 2 °C (ASTM B117). Publican con QoS 0: un solo PUBLISH, sin acuse, sin sobrecargar la red.'},
+  {n:3,name:'Falla sáb 02 AM: 39.5 °C (QoS 1) → POST /api/v1/alertas',src:'Cámara 1',dst:'API → Celular',type:'MQTT + HTTPS',color:C.alert,need:1,
+   note:'Sábado 02:00: la Cámara 1 sube a 39.5 °C y publica con QoS 1 (exige PUBACK). El monitor detecta la falla y le pega al endpoint POST /api/v1/alertas; la API responde 201 Created y manda el push al celular. La sirena se enciende por MQTT.'},
+  {n:4,name:'Corte de la Cámara 2 → Last Will "offline"',src:'Broker MQTT',dst:'API → Celular',type:'MQTT + HTTPS',color:C.lwt,need:1,
+   note:'Se corta el cable de la Cámara 2. El broker deja de recibir el keep-alive y publica en su nombre el Last Will "offline". El monitor lo informa con POST /api/v1/alertas.'},
+  {n:5,name:'Registro de ensayo QoS 2 (4 pasos) → POST /api/v1/ensayos/registro',src:'Cámara 1',dst:'API Alertas',type:'MQTT + HTTPS',color:C.qos2,need:1,
+   note:'QoS 2, exactamente una vez: PUBLISH → PUBREC → PUBREL → PUBCOMP. Después el monitor registra el inicio del ensayo con POST /api/v1/ensayos/registro.'},
+  {n:6,name:'Normalizar y cerrar alertas → PATCH /api/v1/alertas/:id',src:'Cámaras 1–3',dst:'API Alertas',type:'MQTT + HTTPS',color:C.http,need:3,
+   note:'Todas las cámaras vuelven a rango. El monitor cierra cada alerta abierta con PATCH /api/v1/alertas/:id y manda OFF a la sirena.'}
+];
+const DEFAULT_NOTE = 'Las 3 cámaras publican telemetría cada 4 s al broker MQTT (VLAN 10). Si una sale de 33–37 °C o se cae, el monitor llama al endpoint POST /api/v1/alertas de la API y el celular recibe el push. Usá el guion de abajo o pasá a modo Simulación para ir paso a paso.';
+
+function scStart(n){ const sc=SC.find(s=>s.n===n); S.sc[n]={status:'run',got:0,need:sc.need}; S.note=sc; ui(); }
+function scTick(n){ const s=S.sc[n]; if(!s||s.status!=='run') return; if(++s.got>=s.need) s.status='ok'; ui(); }
+function scFail(n){ const s=S.sc[n]; if(s && s.status==='run') s.status='fail'; ui(); }
+
+function runSc(n){
+  scStart(n);
+  if (n===1){
+    [1,2,3].forEach(id=>{ const cam=S.cams[id]; if(!cam.online){ cam.online=true; } });
+    drawLinks();
+    [1,2,3].forEach(id=>{ const cam=S.cams[id];
+      mq(`cam${id}`,'broker','CONNECT',{cam,flow:1,color:C.connect,onArrive:()=>{
+        mq('broker',`cam${id}`,'CONNACK',{flow:1,color:C.connack,onArrive:()=>scTick(1)}); }}); });
+  }
+  else if (n===2 || n===6){
+    const base={1:35.2,2:34.8,3:35.0};
+    [1,2,3].forEach(id=>{ setTemp(id, base[id]);
+      if (!S.cams[id].online) toggleCable(id, n);
+      else publishFromCamera(id, n===2?0:null, n); });
+  }
+  else if (n===3){
+    if (!S.cams[1].online){ S.cams[1].online=true; drawLinks(); }
+    if (S.alerts[1]) { delete S.alerts[1]; }
+    setTemp(1,39.5); publishFromCamera(1,1,3);
+  }
+  else if (n===4){
+    if (!S.cams[2].online){ S.cams[2].online=true; drawLinks(); }
+    delete S.alerts[2];
+    toggleCable(2,4);
+  }
+  else if (n===5){
+    if (!S.cams[1].online){ S.cams[1].online=true; drawLinks(); }
+    const topic='lab/niebla/camara1/registro_ensayo';
+    const payload=JSON.stringify({evento:'INICIO_ENSAYO_ASTM_B117',lote:'A-402',temp_inicial:+S.cams[1].temp.toFixed(1),hora:horaStr()});
+    const pid=++S.msgId;
+    mq('cam1','broker','PUBLISH',{qos:2,topic,payload,pid,flow:5,color:C.qos2,onArrive:()=>{
+      mq('broker','cam1','PUBREC',{pid,qos:2,flow:5,color:C.qos2,onArrive:()=>{
+        mq('cam1','broker','PUBREL',{pid,qos:2,flow:5,color:C.qos2,onArrive:()=>{
+          mq('broker','cam1','PUBCOMP',{pid,qos:2,flow:5,color:C.connack,onArrive:()=>{
+            S.msgCount++;
+            mq('broker','monitor','PUBLISH',{qos:2,topic,payload,pid:++S.msgId,flow:5,color:C.qos2,
+              onArrive:()=>monitorRx({cam:1,kind:'registro',payload,flow:5})});
+          }}); }}); }}); }});
+  }
+  ui();
+}
+
+// =====================================================================
+// INTERFAZ: refresco general
+// =====================================================================
+function ui(){
+  // temperaturas en el lienzo
+  [1,2,3].forEach(id=>{
+    const c=S.cams[id], k=`cam${id}`, out=isOut(c.temp);
+    const tt=$('tt-'+k), tb=$('tb-'+k);
+    if (!tt) return;
+    tt.textContent = c.online ? `${c.temp.toFixed(1)} °C` : 'OFFLINE';
+    tt.setAttribute('fill', !c.online ? '#991b1b' : out ? '#991b1b' : '#166534');
+    tb.setAttribute('fill', (!c.online||out) ? '#fef2f2' : '#ecfdf3');
+    tb.setAttribute('stroke', (!c.online||out) ? '#f3a5a5' : '#86d3a0');
+    const col = out ? '#dc2626' : '#16a34a', h = Math.max(4, Math.min(26, (c.temp-28)/15*26));
+    $('merc-'+k).setAttribute('fill',col); $('bulb-'+k).setAttribute('fill',col);
+    $('merc-'+k).setAttribute('y', 6-h); $('merc-'+k).setAttribute('height', h);
+  });
+  // sirena
+  const dome=$('sirenDome'), halo=$('sirenHalo');
+  if (dome){ dome.setAttribute('fill', S.siren ? '#ef4444' : '#94a3b8');
+    halo.setAttribute('class', S.siren && !S.muted ? 'siren-halo' : ''); halo.setAttribute('opacity', S.siren && !S.muted ? '' : '0'); }
+  // celular
+  const pb=$('pbadge'); if (pb){ pb.style.display = S.unread ? '' : 'none'; $('pbadgeT').textContent = S.unread>9?'9+':S.unread; }
+  // contadores
+  $('cMsg').textContent=S.msgCount; $('cRetx').textContent=S.retx; $('cApi').textContent=S.apiCalls;
+  $('cAl').textContent=Object.keys(S.alerts).length;
+  $('simStat').textContent=`Tiempo de simulación: ${S.simTime.toFixed(3)} s · eventos: ${EVN} · PDUs en espera: ${S.pending.length+S.inflight.length}`;
+  $('clock').textContent=`Sáb ${horaStr()}`;
+  $('bNtfy').textContent=`Celular real (ntfy): ${S.ntfy.on?'ON':'OFF'}`; $('bNtfy').classList.toggle('on',S.ntfy.on); $('bNtfy').classList.toggle('good',S.ntfy.on);
+  // nota
+  $('note').innerHTML = S.note ? `<b>ESCENARIO ${S.note.n}</b><span>${esc(S.note.note)}</span>` : `<b>MODO INTERACTIVO</b><span>${esc(DEFAULT_NOTE)}</span>`;
+  renderSc();
+  refreshWin();
+}
+function renderSc(){
+  const lbl={run:['En progreso','st-run'],ok:['Exitoso','st-ok'],fail:['Fallido','st-fail']};
+  $('scBody').innerHTML = SC.map(s=>{ const st=S.sc[s.n]; const L = st? lbl[st.status] : ['—',''];
+    return `<tr><td><button class="fire" onclick="runSc(${s.n})">Disparar</button></td><td class="${L[1]}">${L[0]}</td><td>${s.src}</td><td>${s.dst}</td><td>${s.type}</td><td><span class="sq" style="background:${s.color}"></span></td><td class="nm">${s.n}. ${esc(s.name)}</td></tr>`; }).join('')
+  + S.userPdus.map(u=>{ const st=S.sc[u.key]; const L = st? lbl[st.status] : ['—',''];
+    return `<tr><td><button class="fire" onclick="fireUserPdu('${u.key}')">Disparar</button></td><td class="${L[1]}">${L[0]}</td><td>${esc(DEV[u.src].name)}</td><td>${esc(DEV[u.dst].name)}</td><td>ICMP</td><td><span class="sq" style="background:${C.icmp}"></span></td><td class="nm">PDU simple ${u.key} · ping ${DEV[u.dst].ip} <button class="fire" onclick="delUserPdu('${u.key}')" title="Borrar">✕</button></td></tr>`; }).join('');
+}
+
+// =====================================================================
+// VENTANAS DE DISPOSITIVO
+// =====================================================================
+let WIN={id:null, tab:0};
+function openDev(id){ WIN={id,tab:0}; $('win').classList.remove('hidden'); if(id==='phone'){S.unread=0;} renderWin(); ui(); }
+function closeWin(){ WIN.id=null; $('win').classList.add('hidden'); }
+function refreshWin(){
+  if (!WIN.id) return;
+  const ae=document.activeElement;
+  if (ae && $('win').contains(ae) && ae.tagName==='INPUT') return;
+  if (isCliTab()) return; // la consola se actualiza sola
+  if (WIN.id==='phone') S.unread=0;
+  renderWin();
+}
+function tabsFor(d){
+  return {sensor:['Control','Config'], server: d.id==='api'?['Endpoints','Log']:['Broker','Config'], switch:['Tabla MAC','VLAN / QoS','CLI'],
+    router:['NAT','Interfaces','CLI'], pc:['Escritorio','Config','Símbolo del sistema'], phone:['Pantalla','Celular real (ntfy)'], siren:['Estado'], cloud:['Info'], sniffer:['Captura','1883 vs 8883']}[d.type];
+}
+function renderWin(){
+  const d=DEV[WIN.id]; if(!d) return;
+  $('winTitle').textContent = `${d.name} — ${d.model}`;
+  const tabs=tabsFor(d);
+  $('winTabs').innerHTML = tabs.map((t,i)=>`<button class="wtab ${i===WIN.tab?'on':''}" onclick="WIN.tab=${i};renderWin();focusCli()">${t}</button>`).join('');
+  const w=$('win'), nw = isCliTab() ? 740 : 560;
+  if (parseInt(w.style.width)!==nw){ const r=w.getBoundingClientRect(); w.style.width=nw+'px'; w.style.left=Math.max(0, Math.min(r.left, innerWidth-nw-10))+'px'; }
+  $('winBody').innerHTML = winContent(d, WIN.tab);
+  const o=$('cliOut'); if (o) o.scrollTop=o.scrollHeight;
+}
+function isCliTab(){ const d=DEV[WIN.id]; if(!d) return false; const t=tabsFor(d)[WIN.tab]; return t==='CLI'||t==='Símbolo del sistema'; }
+function focusCli(){ const i=$('cliIn'); if (i) i.focus(); }
+const row = (k,v) => `<div class="row"><span>${k}</span><span>${esc(v)}</span></div>`;
+
+function winContent(d, tab){
+  if (isCliTab()) return cliView(d.id);
+  if (d.type==='sensor'){
+    const id=+d.id.slice(3), c=S.cams[id], out=isOut(c.temp);
+    if (tab===0) return `
+      <div class="grp"><h4>Sonda de temperatura</h4>
+        <span class="bigtemp ${(!c.online||out)?'t-bad':'t-ok'}">${c.online? c.temp.toFixed(1)+' °C':'OFFLINE'}</span>
+        <span style="margin-left:10px;color:var(--muted)">Tolerancia 33.0–37.0 °C · ${out?'<b style="color:var(--bad)">fuera de rango → QoS 1</b>':'en rango → QoS 0'}</span>
+        <div style="margin-top:10px;display:flex;gap:8px;align-items:center"><span class="mono">28°</span>
+          <input type="range" min="28" max="43" step="0.1" value="${c.temp}" style="flex:1" oninput="setTemp(${id},this.value)" onchange="this.blur()"><span class="mono">43°</span></div>
+        <div class="btnrow">
+          <button class="tb" onclick="setTemp(${id},39.5);publishFromCamera(${id})">Forzar 39.5 °C</button>
+          <button class="tb" onclick="setTemp(${id},31.0);publishFromCamera(${id})">Forzar 31.0 °C</button>
+          <button class="tb" onclick="setTemp(${id},35.0);publishFromCamera(${id})">Volver a 35.0 °C</button>
+          <button class="tb" onclick="publishFromCamera(${id})" ${c.online?'':'disabled'}>Publicar ahora</button>
+          <button class="tb ${c.online?'':'warn on'}" onclick="toggleCable(${id})">${c.online?'Cortar cable Fa0':'Reconectar cable'}</button>
+        </div></div>`;
+    return `<div class="grp"><h4>Interfaz FastEthernet0</h4>${row('Dirección IPv4',d.ip)}${row('Máscara','255.255.255.0')}${row('Gateway',DEV.r1.ip)}${row('MAC',MAC[d.id])}${row('Puerto del switch',portOn('sw',d.id)+' (VLAN 10, access)')}</div>
+      <div class="grp"><h4>Cliente MQTT</h4>${row('Broker',`${DEV.broker.ip}:${S.tls?8883:1883}`)}${row('Client ID',c.name)}${row('Usuario / clave',`${c.user} / lab1234`)}${row('Topic',`lab/niebla/${c.name}/temperatura`)}${row('Last Will',`lab/niebla/${c.name}/estado → "offline"`)}${row('Keep Alive','30 s')}${row('Intervalo','4 s')}</div>`;
+  }
+  if (d.id==='broker'){
+    if (tab===0) return `<div class="grp"><h4>Tabla Retain + estado Last Will</h4><table class="t2"><tr><th>Topic</th><th>Último valor</th><th>Estado</th></tr>
+      ${[1,2,3].map(i=>{const r=S.retain[i];return `<tr><td>lab/niebla/camara${i}/temperatura</td><td>${r.temp.toFixed(1)} °C</td><td style="color:${r.online?'#166534':'#991b1b'}">${r.online?'online':'offline (LWT)'}</td></tr>`;}).join('')}
+      <tr><td>lab/niebla/sirena/cmd</td><td>${S.sirenCmd?'ON':'OFF'}</td><td>—</td></tr></table></div>
+      <div class="grp"><h4>Clientes</h4><table class="t2"><tr><th>Client ID</th><th>Usuario</th><th>IP</th><th>Suscripción / ACL</th></tr>
+      ${[1,2,3].map(i=>`<tr><td>camara${i}</td><td>sensor${i}</td><td>${DEV['cam'+i].ip}</td><td>${S.cams[i].online?'pub lab/niebla/camara'+i+'/#':'<span style="color:#991b1b">desconectado</span>'}</td></tr>`).join('')}
+      <tr><td>monitor</td><td>monitor</td><td>${DEV.monitor.ip}</td><td>sub lab/#</td></tr><tr><td>sirena</td><td>sirena</td><td>${DEV.sirena.ip}</td><td>sub lab/niebla/sirena/cmd</td></tr></table></div>
+      ${row('Mensajes procesados',S.msgCount)}${row('Retransmisiones',S.retx)}`;
+    return `<div class="grp"><h4>Mosquitto 2.0</h4>${row('IP',d.ip)}${row('Listener', S.tls?'8883 (TLS 1.3, certificado CA del lab)':'1883 (TCP sin cifrar)')}${row('allow_anonymous','false')}${row('password_file','/etc/mosquitto/passwd')}${row('acl_file','/etc/mosquitto/acl')}${row('persistence','true')}</div>`;
+  }
+  if (d.id==='api'){
+    if (tab===0) return `<div class="grp"><h4>https://${d.host}</h4><table class="t2"><tr><th>Método</th><th>Endpoint</th><th>Uso</th><th>Respuesta</th></tr>
+      <tr><td>POST</td><td>/api/v1/alertas</td><td>Alta de alerta (temperatura o sensor offline)</td><td>201 Created</td></tr>
+      <tr><td>PATCH</td><td>/api/v1/alertas/:id</td><td>Cierre de alerta cuando vuelve a rango</td><td>200 OK</td></tr>
+      <tr><td>POST</td><td>/api/v1/ensayos/registro</td><td>Registro del ensayo (llega por QoS 2)</td><td>201 Created</td></tr>
+      <tr><td>GET</td><td>/api/v1/estado</td><td>Health check</td><td>200 OK</td></tr></table>
+      <div class="btnrow"><button class="tb" onclick="testGet()">Probar GET /api/v1/estado desde el Monitor</button></div></div>
+      <div class="grp"><h4>Alertas activas (vista del servidor)</h4>${Object.keys(S.alerts).length? `<table class="t2"><tr><th>ID</th><th>Cámara</th><th>Motivo</th><th>Estado</th></tr>${Object.entries(S.alerts).map(([c,a])=>`<tr><td>${a.id||'(en camino)'}</td><td>camara${c}</td><td>${a.motivo}</td><td>${a.status}</td></tr>`).join('')}</table>`:'<span style="color:var(--muted)">Sin alertas abiertas.</span>'}</div>`;
+    return `<div class="term">${S.apiLog.length? S.apiLog.map(l=>`[${l.hora}] <span class="m">${l.method}</span> ${esc(l.url)} → <span class="${l.status<300?'s2':'s4'}">${l.status}</span> (${l.ms} ms)`).join('\n') : 'node server.js\nAPI escuchando en :443 (TLS) — esperando requests…'}</div>`;
+  }
+  if (d.type==='switch'){
+    if (tab===0){ const e=Object.entries(S.macTable);
+      return `<div class="grp"><h4>show mac address-table</h4><table class="t2"><tr><th>VLAN</th><th>MAC</th><th>Tipo</th><th>Puerto</th></tr>${e.length? e.map(([m,v])=>`<tr><td>${v.vlan}</td><td>${m}</td><td>DYNAMIC</td><td>${v.port}</td></tr>`).join('') : '<tr><td colspan="4">(vacía: todavía no pasó tráfico)</td></tr>'}</table></div>`; }
+    return `<div class="grp"><h4>VLAN</h4><table class="t2"><tr><th>VLAN</th><th>Nombre</th><th>Puertos</th></tr><tr><td>10</td><td>VLAN_IoT</td><td>Fa0/1-4, Fa0/10-11</td></tr><tr><td>99</td><td>MGMT</td><td>—</td></tr></table></div>
+      <div class="grp"><h4>QoS y seguridad</h4>${row('Trunk a R1','Gi0/1 (802.1Q)')}${row('MQTT (1883/8883)','DSCP CS3 → cola prioritaria')}${row('HTTPS (443)','DSCP AF21')}${row('SPAN','Fa0/1-11 → Fa0/24 (Sniffer0)')}${row('ACL','solo 192.168.10.0/24 hacia el broker')}${row('Pérdida simulada',S.loss+' %')}</div>`;
+  }
+  if (d.type==='router'){
+    if (tab===0){ const e=Object.values(S.nat);
+      return `<div class="grp"><h4>show ip nat translations</h4><table class="t2"><tr><th>Pro</th><th>Inside global</th><th>Inside local</th><th>Outside global</th></tr>${e.length? e.map(n=>`<tr><td>${n.proto}</td><td>${n.ig}</td><td>${n.il}</td><td>${n.og}</td></tr>`).join('') : '<tr><td colspan="4">(sin traducciones todavía)</td></tr>'}</table></div>`; }
+    return `<div class="grp"><h4>Interfaces</h4>${row('Gi0/0/1.10 (LAN)',`${d.ip}/24 · ip nat inside`)}${row('Gi0/0/0 (WAN)',`${d.wan}/30 · ip nat outside`)}${row('Ruta por defecto','0.0.0.0/0 vía 200.45.10.1 (ISP)')}${row('NAT','PAT overload sobre Gi0/0/0')}</div>`;
+  }
+  if (d.id==='monitor'){
+    if (tab===0){ const m=S.monLast;
+      return `<div class="grp"><h4>App de monitoreo · suscripto a lab/#</h4>${m? row('Último topic', m.topic || (m.kind==='lwt'?`lab/niebla/camara${m.cam}/estado`:'—'))+row('Payload', m.payload || (m.kind==='lwt'?'offline':''))+row('QoS', m.qos!=null?m.qos:'1') : '<span style="color:var(--muted)">Esperando mensajes…</span>'}${row('Mensajes recibidos',S.monRx)}</div>
+        <div class="grp"><h4>Reglas</h4>${row('Fuera de 33–37 °C','POST /api/v1/alertas + sirena ON')}${row('Last Will "offline"','POST /api/v1/alertas + sirena ON')}${row('Vuelve a rango','PATCH /api/v1/alertas/:id + sirena OFF')}${row('Registro QoS 2','POST /api/v1/ensayos/registro')}</div>
+        <div class="grp"><h4>Alertas abiertas</h4>${Object.keys(S.alerts).length? `<table class="t2"><tr><th>Cámara</th><th>Motivo</th><th>ID API</th><th>Estado</th></tr>${Object.entries(S.alerts).map(([c,a])=>`<tr><td>camara${c}</td><td>${a.motivo}</td><td>${a.id||'—'}</td><td>${a.status}</td></tr>`).join('')}</table>`:'<span style="color:var(--muted)">Ninguna.</span>'}</div>`; }
+    return `<div class="grp"><h4>Config</h4>${row('IP',d.ip)}${row('Gateway',DEV.r1.ip)}${row('DNS','8.8.8.8')}${row('Broker',`${DEV.broker.ip}:${S.tls?8883:1883}`)}${row('Usuario MQTT','monitor')}${row('API base URL',`https://${DEV.api.host}/api/v1`)}${row('Auth API','Bearer token (JWT)')}</div>`;
+  }
+  if (d.type==='phone' && tab===1){
+    const n=S.ntfy;
+    return `<div class="grp"><h4>Que suene un celular de verdad</h4>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <button class="tb ${n.on?'good on':''}" onclick="ntfyToggle()">${n.on?'Activado: las alertas van al celular':'Desactivado'}</button>
+        <button class="tb" onclick="ntfySend('Prueba de sirena','Si ves esto, el celular está listo para la demo',true,true)">Enviar alerta de prueba</button>
+      </div>
+      ${row('Servidor','https://ntfy.sh')}
+      <div class="row"><span>Topic</span><span><input value="${esc(n.topic)}" onchange="ntfyTopic(this.value)" style="font-family:var(--mono);font-size:14px;width:230px;padding:2px 4px"> <button class="tb" onclick="ntfyNewTopic()">Nuevo</button></span></div>
+      ${row('Último envío',n.last)}
+    </div>
+    <div class="grp"><h4>Preparar el celular (una sola vez)</h4>
+      <ol style="margin:0;padding-left:18px;line-height:1.6;font-size:12.5px">
+        <li>Instalá la app <b>ntfy</b> (Play Store o App Store).</li>
+        <li>Tocá <b>+</b> y suscribite al topic <b class="mono">${esc(n.topic)}</b> en el servidor ntfy.sh.</li>
+        <li>Tocá <b>Enviar alerta de prueba</b>: tiene que sonar y vibrar.</li>
+        <li>Opcional: en los ajustes de la suscripción elegí un sonido fuerte para la prioridad máxima.</li>
+      </ol>
+      <p style="font-size:12px;color:var(--muted);margin:8px 0 0">Las alertas salen con prioridad máxima y las normalizaciones con prioridad normal. Funciona desde cualquier red, pero la notebook necesita internet. El topic es público: quien sepa el nombre puede leer los mensajes, así que no pongas datos personales.</p>
+    </div>`;
+  }
+  if (d.type==='phone'){
+    return `<div class="phone"><div class="scr"><div class="clk">${horaStr().slice(0,5)}</div>
+      ${S.notifs.length? S.notifs.slice(0,6).map(n=>`<div class="ntf"><b>${n.bad?'🚨':'✅'} ${esc(n.title)}</b>${esc(n.txt)}<br><small>Alertas Lab · ${n.hora}</small></div>`).join('') : '<div style="text-align:center;opacity:.7;font-size:12px">Sin notificaciones</div>'}
+      </div></div>`;
+  }
+  if (d.type==='siren'){
+    return `<div class="grp"><h4>Actuador IoT · sub lab/niebla/sirena/cmd</h4>${row('Estado',S.siren?'SONANDO (ON)':'apagada (OFF)')}${row('Audio local',S.sound?(S.muted?'silenciado':'activado'):'desactivado (toolbar)')}${row('Motivos', Object.entries(S.alerts).map(([c,a])=>`Cámara ${c}: ${a.motivo}`).join(' · ') || '—')}
+      <div class="btnrow"><button class="tb" onclick="muteSiren()">Silenciar</button></div></div>`;
+  }
+  if (d.type==='cloud'){
+    return `<div class="grp"><h4>Internet / ISP</h4>${row('Hacia R1','Eth6 · 200.45.10.1/30')}${row('Hacia API','Eth1 · 200.45.80.0/24')}${row('Hacia celular','red móvil LTE')}
+      <p style="font-size:12.5px;color:var(--muted);margin:8px 0 0">El tráfico que sale del laboratorio viaja cifrado (HTTPS) hasta el endpoint de la API. El celular recibe el push por la red móvil.</p></div>`;
+  }
+  if (d.type==='sniffer'){
+    if (tab===0){
+      const rows = S.cap.slice(-60);
+      const sel = S.cap.find(c=>c.no===S.capSel) || rows[rows.length-1];
+      return `<div style="font-size:12px;color:var(--muted);margin-bottom:6px">Puerto espejo (SPAN) del Switch0: ve todo lo que pasa por la VLAN 10.</div>
+        <div style="max-height:200px;overflow:auto;border:1px solid var(--line)"><table class="t2 cap"><tr><th>No.</th><th>Tiempo</th><th>Origen</th><th>Destino</th><th>Protocolo</th><th>Long.</th><th>Info</th></tr>
+        ${rows.map(c=>`<tr class="${sel&&c.no===sel.no?'sel':''}" onclick="S.capSel=${c.no};renderWin()"><td>${c.no}</td><td>${c.t.toFixed(3)}</td><td>${c.src}</td><td>${c.dst}</td><td>${c.proto}</td><td>${c.len}</td><td>${esc(c.info)}</td></tr>`).join('') || '<tr><td colspan="7">(sin capturas)</td></tr>'}</table></div>
+        <div style="margin-top:8px">${sel? `<pre class="ws">${esc(wsDetail(sel))}</pre>`:''}</div>`;
+    }
+    return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div><div style="font-weight:600;color:var(--bad);margin-bottom:4px">Sin TLS · puerto 1883</div><pre class="ws">Frame 14: 118 bytes · TCP 49152 → 1883
+MQTT (encabezado 2 bytes)
+  CONNECT client_id="camara1"
+          usuario="sensor1"
+          clave="lab1234"
+          will="lab/niebla/camara1/estado" → "offline"
+  PUBLISH topic="lab/niebla/camara1/temperatura"
+          payload={"temp": 35.2, "hora": "03:15:00"}</pre>
+        <p style="font-size:12px;color:var(--muted)">Quien capture en la red ve usuario, clave y lecturas.</p></div>
+      <div><div style="font-weight:600;color:var(--ok);margin-bottom:4px">Con TLS 1.3 · puerto 8883</div><pre class="ws">Frame 18: 142 bytes · TCP 49155 → 8883
+TLSv1.3 Record Layer: Application Data
+  Content Type: Application Data (23)
+  Version: TLS 1.2 (0x0303) legacy
+  Encrypted Application Data:
+  9f c2 1e 7b d0 8b 44 e5 3a 61 f9 0c
+  88 4b 2d 91 a4 7e 3c 55 b1 09 f4 d2 …</pre>
+        <p style="font-size:12px;color:var(--muted)">Con TLS + ACL + certificados solo se ven bytes cifrados.</p></div></div>
+      <div class="btnrow"><button class="tb" onclick="setTLS(false)">Usar 1883 en la demo</button><button class="tb" onclick="setTLS(true)">Usar 8883 en la demo</button></div>`;
+  }
+  return '';
+}
+// ---- Celular real vía ntfy.sh ----
+function ntfySend(title, msg, bad, force){
+  if (!S.ntfy.on && !force) return;
+  S.ntfy.last = 'enviando…'; ui();
+  fetch('https://ntfy.sh/', { method:'POST', body: JSON.stringify({
+      topic:S.ntfy.topic, title, message:msg, priority: bad?5:3,
+      tags: bad?['rotating_light']:['white_check_mark'] }) })
+    .then(r => { S.ntfy.last = r.ok ? `✓ enviada a las ${horaStr()} (${bad?'prioridad máxima':'normal'})` : `error HTTP ${r.status}`; ui(); })
+    .catch(() => { S.ntfy.last = '✕ sin conexión con ntfy.sh (¿hay internet?)'; ui(); });
+}
+function ntfyToggle(){
+  S.ntfy.on=!S.ntfy.on;
+  try { localStorage.setItem('ntfyOn', S.ntfy.on?'1':'0'); } catch(e){}
+  ui();
+}
+function ntfyTopic(v){
+  v = v.trim().replace(/[^A-Za-z0-9_-]/g,'');
+  if (!v) return;
+  S.ntfy.topic=v; try { localStorage.setItem('ntfyTopic', v); } catch(e){}
+  ui();
+}
+function ntfyNewTopic(){ ntfyTopic('niebla-g4-' + Math.random().toString(36).slice(2,10)); }
+function testGet(){
+  S.apiCalls++;
+  http('monitor','api','GET','/api/v1/estado','',{onArrive:()=>{ apiLog('GET','/api/v1/estado',200);
+    httpResp('api','monitor','200 OK',JSON.stringify({ok:true,alertas_activas:Object.keys(S.alerts).length,uptime_s:86400})); }});
+  ui();
+}
+
+// =====================================================================
+// PDU: modelo OSI y detalle de campos
+// =====================================================================
+function cipher(p, n=48){ let x=p.id*2654435761>>>0, out=[]; for(let i=0;i<n;i++){ x^=x<<13; x^=x>>>17; x^=x<<5; x>>>=0; out.push((x&255).toString(16).padStart(2,'0')); } return out.join(' '); }
+function wsDetail(c){
+  const p=c.p, h=hdr(p, p.path.indexOf('sw')-1 >= 0 ? p.path.indexOf('sw')-1 : 0);
+  let s=`Frame ${c.no}: ${p.len} bytes en el cable\nEthernet II, Src: ${h.srcMac}, Dst: ${h.dstMac}\n802.1Q Virtual LAN, PRI: 4, ID: 10\nInternet Protocol v4, Src: ${h.srcIp}, Dst: ${h.dstIp}, DSCP: ${p.dscp}\nTransmission Control Protocol, Src Port: ${p.sport}, Dst Port: ${p.dport}, Flags: [PSH, ACK]\n`;
+  if (p.proto==='ICMP') return `Frame ${c.no}: ${p.len} bytes en el cable\nEthernet II, Src: ${h.srcMac}, Dst: ${h.dstMac}\n802.1Q Virtual LAN, PRI: 0, ID: 10\nInternet Protocol v4, Src: ${h.srcIp}, Dst: ${h.dstIp}\nInternet Control Message Protocol, Type ${p.kind==='Echo Request'?8:0} (${p.kind}), seq=${p.seq}`;
+  if (p.tls) s += `Transport Layer Security\n  TLSv1.3 Record Layer: Application Data\n  Encrypted Application Data: ${cipher(p,32)} …`;
+  else s += `MQ Telemetry Transport Protocol, ${p.kind}\n` + p.l7.map(([k,v])=>`  ${k}: ${v}`).join('\n');
+  return s;
+}
+let PDU={n:null,tab:0};
+function openPdu(n){
+  PDU={n,tab:0};
+  for (const tr of $('evBody').children) tr.classList.toggle('sel', +tr.dataset.n===n);
+  $('pdu').classList.remove('hidden'); renderPdu();
+}
+function closePdu(){ PDU.n=null; $('pdu').classList.add('hidden'); for (const tr of $('evBody').children) tr.classList.remove('sel'); }
+function renderPdu(){
+  const ev=S.events.find(e=>e.n===PDU.n); if(!ev) return;
+  const p=ev.p, at=DEV[ev.b];
+  $('pduTitle').textContent = `Información de la PDU en el dispositivo: ${at.name}`;
+  $('pduTabs').innerHTML = ['Modelo OSI','Detalle de la PDU entrante'].map((t,i)=>`<button class="wtab ${i===PDU.tab?'on':''}" onclick="PDU.tab=${i};renderPdu()">${t}</button>`).join('');
+  $('pduBody').innerHTML = PDU.tab===0 ? osiView(ev) : fieldsView(ev);
+}
+function l7text(p, devId){
+  const enc = p.tls && devId!==p.to && devId!==p.from;
+  if (enc) return `TLS 1.3 Application Data (cifrado)<br>${cipher(p,16)} …`;
+  return `<b>${esc(p.l7title)}</b><br>` + p.l7.map(([k,v])=>`${esc(k)}: ${esc(v)}`).join('<br>');
+}
+function osiView(ev){
+  const p=ev.p, b=ev.b, i=ev.i, hin=hdr(p,i), final = (i+1===p.path.length-1);
+  const hout = (!final && !ev.drop) ? hdr(p,i+1) : null;
+  const kind = DEV[b].type;
+  let maxL = kind==='switch' ? 2 : (b==='r1'||b==='inet') ? 3 : 7;
+  if (p.proto==='ICMP') maxL = Math.min(maxL,3);
+  const L = (n, h, port, dir) => {
+    if (!h) return '';
+    if (n>maxL) return '';
+    switch(n){
+      case 7: return p.proto==='MQTT' ? l7text(p,b) : l7text(p,b);
+      case 6: return p.tls ? (b===p.to?'TLS 1.3 · descifrado en el destino':'TLS 1.3 (cifrado extremo a extremo)') : 'JSON UTF-8 (texto plano)';
+      case 5: return p.proto==='MQTT' ? `Sesión MQTT (keep-alive 30 s)` : 'Sesión TLS';
+      case 4: return `TCP Src Port: ${dir==='in'?p.sport:p.sport}, Dst Port: ${p.dport}<br>Flags: [PSH, ACK]`;
+      case 3: return `IP Header Src. IP: ${h.srcIp},<br>Dest. IP: ${h.dstIp} · TTL ${h.ttl} · DSCP ${p.dscp}` + (p.proto==='ICMP' ? `<br>ICMP Message Type: ${p.kind==='Echo Request'?8:0} (${p.kind})` : '');
+      case 2: return h.seg==='lan' ? `Ethernet II 802.1Q (VLAN 10)<br>${h.srcMac} &gt;&gt; ${h.dstMac}` : (b==='phone'||ev.a==='phone' ? 'Radio LTE (portadora 4G)' : `Ethernet II<br>${h.srcMac} &gt;&gt; ${h.dstMac}`);
+      case 1: return `Puerto: ${port}`;
+    }
+  };
+  let rows='';
+  for (let n=7;n>=1;n--){
+    const inn = n<=maxL ? L(n,hin,hin.inPort,'in') : '';
+    const out = hout && n<=maxL ? L(n,hout,hout.outPortA,'out') : '';
+    rows += `<tr><td class="${inn?'':'off'}"><b>Capa ${n}:</b> ${inn||''}</td><td class="${out?'':'off'}"><b>Capa ${n}:</b> ${out||''}</td></tr>`;
+  }
+  return `<div style="font-size:12px;margin-bottom:6px">En dispositivo: <b>${esc(DEV[b].name)}</b> · Origen: <b>${esc(DEV[p.from].name)}</b> · Destino: <b>${esc(DEV[p.to].name)}</b></div>
+    <table class="osi"><tr><th>Capas de entrada</th><th>Capas de salida</th></tr>${rows}</table>
+    <ol class="expl">${explain(ev, hin, hout, final).map(x=>`<li>${x}</li>`).join('')}</ol>`;
+}
+function explain(ev, hin, hout, final){
+  const p=ev.p, b=ev.b, out=[];
+  if (ev.drop){ out.push(`La PDU se descartó: <b>${ev.drop}</b>.`);
+    out.push(p.proto==='MQTT' && !(p.qos>=1) ? 'Es QoS 0: no hay acuse ni reenvío, la lectura se pierde.' : 'Al no llegar el acuse, el emisor retransmite la PDU (TCP / QoS ≥ 1).');
+    return out; }
+  if (b==='sw'){
+    out.push(`El switch recibe la trama por <b>${hin.inPort}</b> (VLAN 10).`);
+    out.push(`Aprende la MAC origen ${hin.srcMac} en ${hin.inPort} dentro de su tabla MAC.`);
+    out.push(`La MAC destino ${hin.dstMac} está en <b>${hout?hout.outPortA:'—'}</b>: reenvía solo por ese puerto. DSCP ${p.dscp} → cola prioritaria. Copia la trama al puerto SPAN (Sniffer0).`);
+  } else if (b==='r1'){
+    out.push(`R1 recibe el paquete por ${hin.inPort}.`);
+    if (hout && hout.seg==='wan'){ out.push(`El destino ${p.dstIp} no está en la LAN: usa la ruta por defecto 0.0.0.0/0 hacia el ISP.`);
+      out.push(`Aplica NAT/PAT: ${p.srcIp}:${p.sport} → <b>${DEV.r1.wan}:${p.sport}</b>.`); }
+    else { out.push(`Busca ${DEV.r1.wan}:${p.dport} en la tabla NAT y traduce a <b>${p.dstIp}:${p.dport}</b>.`);
+      out.push('Reenvía por la subinterfaz de la VLAN 10.'); }
+  } else if (b==='inet'){
+    out.push(`El proveedor enruta el paquete hacia ${hin.dstIp}. El contenido viaja cifrado (TLS).`);
+  } else if (final){
+    if (b==='broker') out.push(`El broker valida usuario y ACL, procesa el <b>${p.kind}</b>${p.kind==='PUBLISH'?' y actualiza el retain del topic':''}.`);
+    if (b==='monitor' && p.proto==='MQTT') out.push(`La app del monitor recibe el mensaje del topic suscripto (lab/#) y evalúa la tolerancia 33–37 °C.`);
+    if (b==='monitor' && p.proto==='HTTPS') out.push(`El monitor recibe la respuesta del endpoint: <b>${p.kind}</b>.`);
+    if (b==='api') out.push(`El endpoint <b>${esc(p.kind)}</b> recibe el JSON, lo valida, lo guarda y responde.`);
+    if (b==='phone') out.push('El celular del responsable muestra la notificación push.');
+    if (b==='sirena') out.push(`La sirena ejecuta el comando <b>${p.payload}</b>.`);
+    if (p.proto==='ICMP'){ out.length=0; out.push(`${esc(DEV[b].name)} recibe un ICMP <b>${p.kind}</b>.`);
+      out.push(p.kind==='Echo Request' ? 'Responde con un ICMP Echo Reply hacia el origen.' : 'Lo entrega al proceso ping: el destino es alcanzable.'); return out; }
+    if (b.startsWith('cam')) out.push(`La cámara recibe <b>${p.kind}</b> y libera el mensaje pendiente.`);
+    if (p.tls) out.push('El destino descifra el registro TLS con la clave de la sesión.');
+  }
+  return out;
+}
+function fieldsView(ev){
+  const p=ev.p, h=hdr(p,ev.i);
+  const box = (title, cells) => `<div class="fbox"><div class="fh">${title}</div><div class="fg">${cells.map(([k,v,w])=>`<div class="${w||''}"><small>${k}</small>${esc(v)}</div>`).join('')}</div></div>`;
+  let html = '';
+  if (h.seg==='lan') html += box('Ethernet II + 802.1Q', [['DEST MAC',h.dstMac,'w2'],['SRC MAC',h.srcMac,'w2'],['TPID','0x8100'],['PRI','4'],['VLAN ID','10'],['TYPE','0x0800']]);
+  else html += box('Ethernet II', [['DEST MAC',h.dstMac,'w2'],['SRC MAC',h.srcMac,'w2'],['TYPE','0x0800','w4']]);
+  html += box('IPv4', [['VER','4'],['IHL','5'],['DSCP',p.dscp],['LONG.',String(p.len-14)],['TTL',String(h.ttl)],['PRO',p.proto==='ICMP'?'0x01 (ICMP)':'0x06 (TCP)'],['CHKSUM','0x'+cipher(p,2).replace(' ','')],['ID','0x'+(p.id*97%65535).toString(16)],['SRC IP',h.srcIp,'w2'],['DST IP',h.dstIp,'w2']]);
+  if (p.proto==='ICMP'){ html += box('ICMP', [['TYPE',p.kind==='Echo Request'?'0x08':'0x00'],['CODE','0x00'],['CHECKSUM','0x'+cipher(p,2).replace(' ','')],['ID','0x0001'],['SEQ NUMBER',String(p.seq),'w2'],['DATA','32 bytes','w2']]); return html; }
+  html += box('TCP', [['SRC PORT',String(p.sport)],['DEST PORT',String(p.dport)],['SEQ',String(1000+p.id*137)],['ACK',String(5000+p.id*71)],['FLAGS','PSH, ACK','w2'],['WINDOW','64240'],['CHKSUM','0x'+cipher(p,3).split(' ').slice(1).join('')]]);
+  const enc = p.tls && ev.b!==p.to;
+  if (enc) html += box('TLS 1.3 Record', [['TYPE','23 (App Data)'],['VERSION','0x0303'],['LONG.',String(p.len-54)],['',''],['DATOS CIFRADOS',cipher(p,40)+' …','w4']]);
+  else html += box(esc(p.l7title), p.l7.map(([k,v])=>[k.toUpperCase(), v, (String(v).length>22?'w4':'w2')]));
+  return html;
+}
+
+// =====================================================================
+// ICMP (ping) + PDU SIMPLE
+// =====================================================================
+function icmp(from, to, type, seq, o={}){
+  return send({from,to,proto:'ICMP',tls:false,kind: type==='req'?'Echo Request':'Echo Reply',seq,
+    payload:'abcdefghijklmnopqrstuvwabcdefghi', color:C.icmp, dscp:'BE (0)', qos:null, flow:o.flow,
+    onArrive:o.onArrive, onLost:o.onLost, l7title:'ICMP', l7:[['Type',type==='req'?'8 (Echo Request)':'0 (Echo Reply)'],['Seq',String(seq)]]});
+}
+function ipToDev(ip){ for (const k in DEV){ if (DEV[k].ip===ip || DEV[k].wan===ip) return k; } return null; }
+// Un eco ida y vuelta: cb(ok, ttl, ms)
+function pingOnce(from, to, seq, cb){
+  if (from===to){ setTimeout(()=>cb(true,128,0),50); return; }
+  const t0=S.simTime;
+  icmp(from,to,'req',seq,{onLost:()=>cb(false),onArrive:()=>{
+    icmp(to,from,'rep',seq,{onLost:()=>cb(false),onArrive:(p)=>{
+      const h=hdr(p,p.path.length-2);
+      cb(true, h.ttl, Math.max(1,Math.round((S.simTime-t0)*1000/4)));
+    }});
+  }});
+}
+function startPduTool(){
+  S.pduTool = S.pduTool ? null : {stage:'src'};
+  toolHint(S.pduTool ? 'PDU simple: elegí el dispositivo de ORIGEN (Esc para cancelar)' : '');
+}
+function toolHint(t){
+  $('toolHint').textContent=t; $('toolHint').classList.toggle('on',!!t);
+  $('ws').classList.toggle('picking',!!S.pduTool); $('bPdu').classList.toggle('on',!!S.pduTool);
+}
+function pduPick(id){
+  if (!DEV[id].ip){ toolHint(`${DEV[id].name} no tiene IP: elegí un equipo final, un servidor o R1`); return; }
+  if (S.pduTool.stage==='src'){ S.pduTool={stage:'dst',src:id}; toolHint(`Origen: ${DEV[id].name}. Ahora elegí el DESTINO`); return; }
+  const src=S.pduTool.src; if (id===src) return;
+  S.pduTool=null; toolHint('');
+  const key='U'+(++S.upSeq);
+  S.userPdus.push({key,src,dst:id});
+  fireUserPdu(key);
+}
+function fireUserPdu(key){
+  const u=S.userPdus.find(x=>x.key===key); if(!u) return;
+  S.sc[key]={status:'run'}; ui();
+  pingOnce(u.src,u.dst,1,(ok)=>{ S.sc[key]={status: ok?'ok':'fail'}; ui(); });
+}
+function delUserPdu(key){ S.userPdus=S.userPdus.filter(x=>x.key!==key); delete S.sc[key]; ui(); }
+
+// =====================================================================
+// CLI (Switch0, R1) y símbolo del sistema (Monitor)
+// =====================================================================
+function cliState(dev){
+  if (!S.cli[dev]){
+    S.cli[dev] = {lines:[], priv:false, hist:[], hi:0};
+    S.cli[dev].lines.push(dev==='monitor' ? 'NET-EMU PC Command Line 1.0\n' : `\n${DEV[dev].name} con0 is now available\n\nPress RETURN to get started.\n`);
+  }
+  return S.cli[dev];
+}
+function cliPrompt(dev){ if (dev==='monitor') return 'C:\\>'; return DEV[dev].name + (cliState(dev).priv ? '#' : '>'); }
+function cliPrint(dev, txt){
+  const c=cliState(dev); c.lines.push(txt);
+  if (c.lines.length>500) c.lines.splice(0, c.lines.length-500);
+  if (WIN.id===dev && isCliTab()){ const o=$('cliOut'); o.textContent=c.lines.join('\n'); o.scrollTop=o.scrollHeight; $('cliPr').textContent=cliPrompt(dev); }
+}
+function cliView(dev){
+  const c=cliState(dev);
+  const hints = dev==='monitor' ? 'ipconfig · ping 192.168.10.100 · ping 200.45.80.20 · curl https://api.labniebla.com.ar/api/v1/estado · help'
+    : dev==='sw' ? 'enable · show mac address-table · show vlan brief · show interfaces status · show monitor · show running-config · ?'
+    : 'enable · show ip interface brief · show ip route · show ip nat translations · ping 192.168.10.11 · show running-config · ?';
+  return `<div class="cli" onclick="if(!getSelection().toString())focusCli()"><pre id="cliOut">${esc(c.lines.join('\n'))}</pre>
+    <div class="cliin"><span id="cliPr">${esc(cliPrompt(dev))}</span><input id="cliIn" autocomplete="off" spellcheck="false" onkeydown="cliKey(event,'${dev}')"></div></div>
+    <div style="font-size:11.5px;color:var(--muted);margin-top:6px">Probá: <span class="mono">${esc(hints)}</span> · se aceptan abreviaturas (sh ip nat tr)</div>`;
+}
+function cliKey(e, dev){
+  const c=cliState(dev), inp=e.target;
+  if (e.key==='Enter'){
+    const cmd=inp.value; inp.value='';
+    cliPrint(dev, cliPrompt(dev) + cmd);
+    if (cmd.trim()){ c.hist.push(cmd); c.hi=c.hist.length; }
+    cliExec(dev, cmd.trim());
+    $('cliPr').textContent=cliPrompt(dev);
+  } else if (e.key==='ArrowUp'){ if(c.hi>0){ c.hi--; inp.value=c.hist[c.hi]; } e.preventDefault(); }
+  else if (e.key==='ArrowDown'){ if(c.hi<c.hist.length-1){ c.hi++; inp.value=c.hist[c.hi]; } else { c.hi=c.hist.length; inp.value=''; } e.preventDefault(); }
+}
+// Coincidencia por prefijo, como IOS ("sh ip nat tr")
+function cmdIs(tok, pat){
+  const P=pat.split(' ');
+  if (tok.length<P.length) return false;
+  return P.every((w,i)=>{ const t=tok[i].toLowerCase(); return w.startsWith(t) && (t.length>=2 || w.length===1); });
+}
+const pad=(s,n)=>String(s).padEnd(n);
+function cliExec(dev, line){
+  if (!line) return;
+  const tok=line.split(/\s+/), c=cliState(dev), out=t=>cliPrint(dev,t);
+  if (dev==='monitor') return pcExec(tok, out);
+  if (cmdIs(tok,'?')||cmdIs(tok,'help')){
+    out(dev==='sw'
+      ? '  enable                 Entrar en modo privilegiado\n  disable                Volver a modo usuario\n  show mac address-table Tabla de direcciones MAC\n  show vlan brief        Resumen de VLANs\n  show interfaces status Estado de los puertos\n  show monitor           Sesión SPAN hacia el sniffer\n  show running-config    Configuración actual (#)\n  clear                  Limpiar la pantalla'
+      : '  enable                    Entrar en modo privilegiado\n  disable                   Volver a modo usuario\n  ping A.B.C.D              Enviar ecos ICMP\n  show ip interface brief   Resumen de interfaces\n  show ip route             Tabla de ruteo\n  show ip nat translations  Traducciones NAT activas\n  show running-config       Configuración actual (#)\n  clear                     Limpiar la pantalla');
+    return;
+  }
+  if (cmdIs(tok,'enable')){ c.priv=true; return; }
+  if (cmdIs(tok,'disable')||cmdIs(tok,'exit')||cmdIs(tok,'logout')){ c.priv=false; return; }
+  if (cmdIs(tok,'clear')){ c.lines=[]; cliPrint(dev,''); return; }
+  if (dev==='sw'){
+    if (cmdIs(tok,'show mac address-table')){
+      const e=Object.entries(S.macTable);
+      out('          Mac Address Table\n-------------------------------------------\n\nVlan    Mac Address       Type        Ports\n----    -----------       --------    -----\n' +
+        e.map(([m,v])=>`  ${pad(v.vlan,6)}${pad(m.toLowerCase(),18)}${pad('DYNAMIC',12)}${v.port}`).join('\n'));
+      return;
+    }
+    if (cmdIs(tok,'show vlan brief')){
+      out('VLAN Name                             Status    Ports\n---- -------------------------------- --------- -------------------------------\n1    default                          active    Fa0/5, Fa0/6, Fa0/7, Fa0/8, Fa0/9\n                                                Fa0/12, Fa0/13 ... Fa0/23\n10   VLAN_IoT                         active    Fa0/1, Fa0/2, Fa0/3, Fa0/4\n                                                Fa0/10, Fa0/11\n99   MGMT                             active');
+      return;
+    }
+    if (cmdIs(tok,'show interfaces status')){
+      const r=[['Fa0/1','camara1','cam1'],['Fa0/2','camara2','cam2'],['Fa0/3','camara3','cam3'],['Fa0/4','sirena','sirena'],['Fa0/10','broker-mqtt','broker'],['Fa0/11','monitor','monitor'],['Fa0/24','span-sniffer','sniffer'],['Gi0/1','trunk-R1','r1']];
+      out('Port      Name               Status       Vlan       Duplex  Speed Type\n' + r.map(([pt,n,d])=>{
+        const up = linkUp(linkOf('sw',d));
+        return `${pad(pt,10)}${pad(n,19)}${pad(up?'connected':'notconnect',13)}${pad(pt==='Gi0/1'?'trunk':pt==='Fa0/24'?'1':'10',11)}${pad('auto',8)}${pad('auto',6)}${pt==='Gi0/1'?'10/100/1000BaseTX':'10/100BaseTX'}`; }).join('\n'));
+      return;
+    }
+    if (cmdIs(tok,'show monitor')){ out('Session 1\n---------\nType                   : Local Session\nSource Ports           :\n    Both               : Fa0/1-4,Fa0/10-11\nDestination Ports      : Fa0/24\n    Encapsulation      : Native\n          Ingress      : Disabled'); return; }
+    if (cmdIs(tok,'show running-config')){
+      if (!c.priv) return out("                ^\n% Invalid input detected at '^' marker.");
+      out('Building configuration...\n\nCurrent configuration : 1482 bytes\n!\nhostname Switch0\n!\nvlan 10\n name VLAN_IoT\nvlan 99\n name MGMT\n!\nmls qos\n!\ninterface FastEthernet0/1\n description camara1\n switchport mode access\n switchport access vlan 10\n mls qos trust dscp\n!\ninterface FastEthernet0/2\n description camara2\n switchport access vlan 10\n!\ninterface FastEthernet0/3\n description camara3\n switchport access vlan 10\n!\ninterface FastEthernet0/4\n description sirena\n switchport access vlan 10\n!\ninterface FastEthernet0/10\n description broker-mqtt\n switchport access vlan 10\n!\ninterface FastEthernet0/11\n description monitor\n switchport access vlan 10\n!\ninterface GigabitEthernet0/1\n switchport mode trunk\n!\nmonitor session 1 source interface Fa0/1 - 4 , Fa0/10 - 11\nmonitor session 1 destination interface Fa0/24\n!\nend');
+      return;
+    }
+  }
+  if (dev==='r1'){
+    if (cmdIs(tok,'ping')) return iosPing(tok[1], out);
+    if (cmdIs(tok,'show ip interface brief')){
+      out('Interface               IP-Address      OK? Method Status                Protocol\nGigabitEthernet0/0/0    200.45.10.2     YES manual up                    up\nGigabitEthernet0/0/1    unassigned      YES unset  up                    up\nGigabitEthernet0/0/1.10 192.168.10.1    YES manual up                    up\nGigabitEthernet0/0/2    unassigned      YES unset  administratively down down');
+      return;
+    }
+    if (cmdIs(tok,'show ip route')){
+      out('Codes: L - local, C - connected, S - static, R - RIP, O - OSPF\n       * - candidate default\n\nGateway of last resort is 200.45.10.1 to network 0.0.0.0\n\n     192.168.10.0/24 is variably subnetted, 2 subnets, 2 masks\nC       192.168.10.0/24 is directly connected, GigabitEthernet0/0/1.10\nL       192.168.10.1/32 is directly connected, GigabitEthernet0/0/1.10\n     200.45.10.0/24 is variably subnetted, 2 subnets, 2 masks\nC       200.45.10.0/30 is directly connected, GigabitEthernet0/0/0\nL       200.45.10.2/32 is directly connected, GigabitEthernet0/0/0\nS*   0.0.0.0/0 [1/0] via 200.45.10.1');
+      return;
+    }
+    if (cmdIs(tok,'show ip nat translations')){
+      const e=Object.values(S.nat);
+      out('Pro  Inside global          Inside local           Outside local          Outside global\n' +
+        e.map(n=>`${pad(n.proto,5)}${pad(n.ig,23)}${pad(n.il,23)}${pad(n.og,23)}${n.og}`).join('\n'));
+      return;
+    }
+    if (cmdIs(tok,'show running-config')){
+      if (!c.priv) return out("                ^\n% Invalid input detected at '^' marker.");
+      out('Building configuration...\n\nCurrent configuration : 1206 bytes\n!\nhostname R1\n!\ninterface GigabitEthernet0/0/0\n description ISP\n ip address 200.45.10.2 255.255.255.252\n ip nat outside\n!\ninterface GigabitEthernet0/0/1\n no ip address\n!\ninterface GigabitEthernet0/0/1.10\n description VLAN_IoT\n encapsulation dot1Q 10\n ip address 192.168.10.1 255.255.255.0\n ip nat inside\n!\nip nat inside source list 1 interface GigabitEthernet0/0/0 overload\nip route 0.0.0.0 0.0.0.0 200.45.10.1\n!\naccess-list 1 permit 192.168.10.0 0.0.0.255\n!\nend');
+      return;
+    }
+  }
+  out(`${' '.repeat(cliPrompt(dev).length)}^\n% Invalid input detected at '^' marker.`);
+}
+function iosPing(ip, out){
+  if (!ip || !/^\d+\.\d+\.\d+\.\d+$/.test(ip)) return out('% Unrecognized host or address.');
+  const to=ipToDev(ip);
+  out(`Type escape sequence to abort.\nSending 5, 100-byte ICMP Echos to ${ip}, timeout is 2 seconds:`);
+  let i=0, okN=0, marks='', times=[];
+  const next=()=>{
+    if (i>=5){ out(marks + `\nSuccess rate is ${okN*20} percent (${okN}/5)` + (okN? `, round-trip min/avg/max = ${Math.min(...times)}/${Math.round(times.reduce((a,b)=>a+b,0)/times.length)}/${Math.max(...times)} ms`:'')); return; }
+    i++;
+    if (!to){ marks+='.'; return setTimeout(next, 250); }
+    pingOnce('r1', to, i, (ok,ttl,ms)=>{ if(ok){okN++; times.push(ms); marks+='!';} else marks+='.'; next(); });
+  };
+  next();
+}
+function pcExec(tok, out){
+  const cmd=tok[0].toLowerCase();
+  if (cmd==='help'||cmd==='?'){ out('Comandos disponibles:\n  ipconfig      Configuración IP\n  ping <ip>     Enviar 4 ecos ICMP\n  curl <url>    Pedido HTTPS GET a la API\n  cls           Limpiar la pantalla'); return; }
+  if (cmd==='cls'||cmd==='clear'){ cliState('monitor').lines=[]; cliPrint('monitor',''); return; }
+  if (cmd==='ipconfig'){ out(`\nFastEthernet0 Connection:(default port)\n\n   Connection-specific DNS Suffix..: lab.local\n   Physical Address................: ${MAC.monitor}\n   IPv4 Address....................: ${DEV.monitor.ip}\n   Subnet Mask.....................: 255.255.255.0\n   Default Gateway.................: ${DEV.r1.ip}\n   DNS Servers.....................: 8.8.8.8\n`); return; }
+  if (cmd==='ping'){
+    const ip=tok[1];
+    if (!ip || !/^\d+\.\d+\.\d+\.\d+$/.test(ip)) return out('Ping request could not find host. Please check the name and try again.');
+    const to=ipToDev(ip);
+    out(`\nPinging ${ip} with 32 bytes of data:\n`);
+    let i=0, okN=0, times=[];
+    const next=()=>{
+      if (i>=4){ out(`\nPing statistics for ${ip}:\n    Packets: Sent = 4, Received = ${okN}, Lost = ${4-okN} (${(4-okN)*25}% loss),` + (okN?`\nApproximate round trip times in milli-seconds:\n    Minimum = ${Math.min(...times)}ms, Maximum = ${Math.max(...times)}ms, Average = ${Math.round(times.reduce((a,b)=>a+b,0)/okN)}ms`:'')); return; }
+      i++;
+      if (!to){ out('Request timed out.'); return setTimeout(next, 300); }
+      pingOnce('monitor', to, i, (ok,ttl,ms)=>{ if(ok){ okN++; times.push(ms); out(`Reply from ${ip}: bytes=32 time=${ms}ms TTL=${ttl}`);} else out('Request timed out.'); next(); });
+    };
+    next(); return;
+  }
+  if (cmd==='curl'){
+    const url=tok[tok.length-1]||'';
+    const m=url.match(/^https?:\/\/([^\/]+)(\/.*)?$/);
+    if (!m) return out('curl: (3) URL using bad/illegal format or missing URL');
+    if (m[1]!==DEV.api.host && m[1]!==DEV.api.ip) return out(`curl: (6) Could not resolve host: ${m[1]}`);
+    const path=m[2]||'/';
+    S.apiCalls++;
+    http('monitor','api','GET',path,'',{onArrive:()=>{
+      const okp = path==='/api/v1/estado';
+      apiLog('GET',path,okp?200:404);
+      const body = okp ? JSON.stringify({ok:true,alertas_activas:Object.keys(S.alerts).length,uptime_s:86400}) : JSON.stringify({error:'not found'});
+      httpResp('api','monitor',okp?'200 OK':'404 Not Found',body,{onArrive:()=>out(body)});
+    }});
+    ui(); return;
+  }
+  out('Invalid Command.');
+}
+
+// =====================================================================
+// PALETA DE DISPOSITIVOS
+// =====================================================================
+const PAL = [
+  {label:'Dispositivos de red', icon:'router', items:[
+    {type:'router',label:'Routers',model:'ISR4331',ids:['r1']},
+    {type:'switch',label:'Switches',model:'2960-24TT',ids:['sw']},
+    {type:'cloud',label:'WAN',model:'Cloud-PT',ids:['inet']}]},
+  {label:'Dispositivos finales', icon:'pc', items:[
+    {type:'pc',label:'PC',model:'PC-PT',ids:['monitor']},
+    {type:'server',label:'Servidores',model:'Server-PT',ids:['broker','api']},
+    {type:'phone',label:'Celulares',model:'Smartphone-PT',ids:['phone']}]},
+  {label:'Componentes IoT', icon:'sensor', items:[
+    {type:'sensor',label:'SBC + sonda',model:'SBC-PT',ids:['cam1','cam2','cam3']},
+    {type:'siren',label:'Sirena',model:'IoT Siren',ids:['sirena']}]},
+  {label:'Conexiones', icon:'cu', items:[
+    {type:'cu',label:'Cobre directo',model:'Copper Straight-Through',links:10},
+    {type:'wl',label:'Inalámbrico',model:'Enlace LTE (celular)',links:1}]},
+  {label:'Varios', icon:'sniffer', items:[
+    {type:'sniffer',label:'Sniffer',model:'Sniffer (puerto SPAN)',ids:['sniffer']}]}
+];
+let palCat=0, palFoot='Elegí un tipo para resaltarlo en la topología';
+function miniIcon(type){
+  if (type==='cu') return '<svg width="40" height="30" viewBox="0 0 40 30"><line x1="6" y1="25" x2="34" y2="5" stroke="#1f2933" stroke-width="2.5"/></svg>';
+  if (type==='wl') return '<svg width="40" height="30" viewBox="0 0 40 30"><line x1="6" y1="25" x2="34" y2="5" stroke="#5b6673" stroke-width="2" stroke-dasharray="4 3"/></svg>';
+  return `<svg width="40" height="30" viewBox="-44 -34 88 68">${icon({type,id:'pal'}).replace(/ id="[^"]*"/g,'')}</svg>`;
+}
+function renderPal(){
+  const cat=PAL[palCat];
+  $('pal').innerHTML = `<div class="pal-cats">${PAL.map((c,i)=>`<button class="pal-cat ${i===palCat?'on':''}" title="${c.label}" onclick="palCat=${i};palFoot='Elegí un tipo para resaltarlo en la topología';renderPal()">${miniIcon(c.icon)}</button>`).join('')}</div>
+    <div class="pal-name">${cat.label}</div>
+    <div class="pal-items">${cat.items.map((it,j)=>`<button class="pal-item" title="${esc(it.model)}" onclick="palPick(${j})">${miniIcon(it.type)}<br>${esc(it.label)}</button>`).join('')}</div>
+    <div class="pal-foot">${esc(palFoot)}</div>`;
+}
+function palPick(j){
+  const it=PAL[palCat].items[j];
+  if (it.ids){
+    palFoot = `${it.model} · ${it.ids.length} en la topología`;
+    it.ids.forEach(id=>{ const g=document.querySelector(`.dev[data-id="${id}"]`); if(!g) return; g.classList.remove('flash'); void g.getBBox(); g.classList.add('flash'); setTimeout(()=>g.classList.remove('flash'),1700); });
+  } else palFoot = `${it.model} · ${it.links} ${it.links===1?'enlace':'enlaces'} en la topología`;
+  renderPal();
+}
+
+// =====================================================================
+// CONTROLES
+// =====================================================================
+function setMode(m){
+  S.mode=m; S.playing = (m==='realtime');
+  $('mRT').classList.toggle('on',m==='realtime'); $('mSIM').classList.toggle('on',m==='simulation');
+  $('modeLbl').textContent = m==='realtime' ? 'Tiempo real' : 'Simulación';
+  $('rtMask').style.display = m==='realtime' ? '' : 'none';
+  ['pPlay','pStep'].forEach(id=>$(id).disabled = (m==='realtime'));
+  $('pPlay').textContent = S.playing && m==='simulation' ? '⏸' : '▶';
+  $('pPlay').classList.toggle('on', S.playing && m==='simulation');
+  updAuto();
+  kick();
+}
+function togglePlay(){ if(S.mode!=='simulation') return; S.playing=!S.playing; $('pPlay').textContent=S.playing?'⏸':'▶'; $('pPlay').classList.toggle('on',S.playing); kick(); }
+function resetSim(){
+  if (stepTimer){ clearTimeout(stepTimer); stepTimer=null; }
+  EPOCH++;
+  [...S.pending,...S.inflight].forEach(p=>p.el.remove()); S.pending=[]; S.inflight=[];
+  S.events=[]; EVN=0; S.simTime=0; $('evBody').innerHTML=''; closePdu(); ui();
+}
+function setTLS(on){ S.tls=on;
+  $('b1883').classList.toggle('on',!on); $('b8883').classList.toggle('on',on);
+  publishAll(); ui(); }
+function setNet(){
+  S.delay=+$('rDelay').value; S.jitter=+$('rJit').value; S.loss=+$('rLoss').value;
+  $('vDelay').textContent=`${S.delay} ms`; $('vJit').textContent=`±${S.jitter} ms`; $('vLoss').textContent=`${S.loss} %`; ui();
+}
+function toggleAuto(){ S.autoTel=!S.autoTel; updAuto(); }
+function updAuto(){
+  const live = S.autoTel && S.mode==='realtime';
+  $('bAuto').classList.toggle('on', S.autoTel);
+  $('autoDot').classList.toggle('live', live);
+  $('autoTxt').textContent = !S.autoTel ? 'Auto-telemetría: pausada' : (S.mode==='realtime' ? 'Auto-telemetría (4 s)' : 'Auto-telemetría: en espera (simulación)');
+}
+function toggleIps(){ S.showIps=!S.showIps; $('topo').classList.toggle('show-ip',S.showIps); $('bIps').classList.toggle('on',S.showIps); }
+
+// Audio de sirena (WebAudio, sin dependencias)
+let actx=null, osc=null, sirenIv=null;
+function sirenAudio(on){
+  if (on){
+    if (sirenIv) return;
+    actx = actx || new (window.AudioContext||window.webkitAudioContext)();
+    actx.resume();
+    osc=actx.createOscillator(); const g=actx.createGain(); g.gain.value=0.04; osc.type='sawtooth';
+    osc.connect(g).connect(actx.destination); osc.start();
+    let hi=true; sirenIv=setInterval(()=>{ osc.frequency.setValueAtTime(hi?880:660, actx.currentTime); hi=!hi; }, 260);
+  } else if (sirenIv){ clearInterval(sirenIv); sirenIv=null; try{osc.stop();}catch(e){} osc=null; }
+}
+function toggleSound(){
+  S.sound=!S.sound; $('bSound').textContent=`Audio sirena: ${S.sound?'ON':'OFF'}`; $('bSound').classList.toggle('on',S.sound);
+  if (S.sound && !actx) { actx=new (window.AudioContext||window.webkitAudioContext)(); }
+  sirenAudio(S.sound && S.siren && !S.muted);
+}
+function muteSiren(){ S.muted=true; sirenAudio(false); ui(); }
+
+function resetAll(){
+  resetSim();
+  initCams(); S.alerts={}; S.sirenCmd=false; S.siren=false; S.muted=false; sirenAudio(false);
+  S.msgCount=0; S.retx=0; S.apiCalls=0; S.notifs=[]; S.unread=0; S.apiLog=[]; S.cap=[]; S.macTable={}; S.nat={};
+  S.sc={}; S.userPdus=[]; S.note=null; S.monLast=null; S.monRx=0; S.clock=7200;
+  $('rLoss').value=0; $('rDelay').value=60; $('rJit').value=5; setNet();
+  S.tls=false; $('b1883').classList.add('on'); $('b8883').classList.remove('on');
+  drawLinks(); ui();
+  if (S.mode==='realtime') setTimeout(()=>publishAll(), 300);
+}
+
+// Ventanas arrastrables
+document.querySelectorAll('[data-drag]').forEach(bar=>{
+  bar.addEventListener('pointerdown', e=>{
+    if (e.target.closest('button')) return;
+    const w=$(bar.dataset.drag), r=w.getBoundingClientRect(), dx=e.clientX-r.left, dy=e.clientY-r.top;
+    const mv=ev=>{ w.style.left=Math.max(0,ev.clientX-dx)+'px'; w.style.top=Math.max(0,ev.clientY-dy)+'px'; };
+    const up=()=>{ window.removeEventListener('pointermove',mv); window.removeEventListener('pointerup',up); };
+    window.addEventListener('pointermove',mv); window.addEventListener('pointerup',up);
+  });
+});
+document.addEventListener('keydown', e=>{
+  if (e.target.tagName==='INPUT') return;
+  if (e.code==='Space' && S.mode==='simulation'){ e.preventDefault(); togglePlay(); }
+  if (e.code==='ArrowRight' && S.mode==='simulation'){ e.preventDefault(); manualStep(); }
+  if (e.code==='Escape'){ if (S.pduTool){ S.pduTool=null; toolHint(''); return; } closePdu(); closeWin(); }
+});
+
+// =====================================================================
+// ARRANQUE
+// =====================================================================
+buildFilters();
+renderPal();
+drawDevices();
+drawLinks();
+setMode('realtime');
+ui();
+setTimeout(()=>publishAll(), 500);
+setInterval(()=>{ if (S.mode==='realtime'){ S.clock++; $('clock').textContent=`Sáb ${horaStr()}`; } }, 1000);
+setInterval(()=>{ if (S.autoTel && S.mode==='realtime') publishAll(); }, 4200);
+</script>
+</body>
+</html>
