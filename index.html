@@ -16,12 +16,10 @@
   button{font:inherit;cursor:pointer}
   .mono{font-family:var(--mono)}
 
-  /* Barra de título */
   .titlebar{height:30px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;background:#fff;border-bottom:1px solid var(--line);font-size:12px}
   .titlebar .t{font-weight:600}
   .titlebar .s{color:var(--muted)}
 
-  /* Toolbar */
   .toolbar{display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--chrome2);border-bottom:1px solid var(--line);flex-wrap:wrap}
   .tb{border:1px solid #aeb6c0;background:linear-gradient(#fff,#e9ecf0);border-radius:3px;padding:3px 9px;font-size:12px;color:var(--text);display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
   .tb:hover{background:linear-gradient(#fff,#dde3ea)}
@@ -37,7 +35,6 @@
   .dot.live{background:#16a34a}
   .hint{margin-left:auto;color:var(--muted);font-size:11.5px}
 
-  /* Área principal */
   .main{flex:1;display:flex;min-height:0}
   .ws{flex:1;position:relative;background:#fff;border-right:1px solid var(--line);min-width:0;
       background-image:linear-gradient(#f1f4f7 1px,transparent 1px),linear-gradient(90deg,#f1f4f7 1px,transparent 1px);background-size:24px 24px}
@@ -58,7 +55,6 @@
   @keyframes sirenPulse{0%,100%{opacity:.15}50%{opacity:.55}}
   .siren-halo{animation:sirenPulse .6s infinite}
 
-  /* Panel de simulación */
   .simpanel{width:400px;display:flex;flex-direction:column;background:var(--chrome2);min-height:0}
   .ph{padding:6px 10px;font-weight:600;border-bottom:1px solid var(--line);background:var(--chrome);display:flex;justify-content:space-between;align-items:center}
   .ph small{font-weight:400;color:var(--muted)}
@@ -80,7 +76,6 @@
   .simstat{padding:0 10px 4px;font-size:11.5px;color:var(--muted)}
   .rtmask{padding:6px 10px;font-size:11.5px;color:var(--muted)}
 
-  /* Barra inferior */
   .bottom{height:178px;display:grid;grid-template-columns:262px 175px 1fr 270px 108px;border-top:1px solid var(--line);background:var(--chrome2)}
   .bcell{border-right:1px solid var(--line);padding:6px 8px;min-width:0;overflow:hidden}
   .bcell:last-child{border-right:none}
@@ -103,7 +98,6 @@
   .mode.on{background:#dbe8fb;border-color:#6b9ae0;font-weight:600;color:#123f86}
   .mode .ic{font-size:18px;display:block}
 
-  /* Ventanas (dispositivo / PDU) */
   .win{position:fixed;z-index:60;background:#f0f0f0;border:1px solid #7d8794;box-shadow:0 8px 28px rgba(0,0,0,.25);display:flex;flex-direction:column;max-height:84vh}
   .win.hidden{display:none}
   .wt{height:30px;display:flex;align-items:center;justify-content:space-between;padding:0 4px 0 10px;background:#fff;border-bottom:1px solid var(--line);cursor:move;font-weight:600}
@@ -151,12 +145,10 @@
   @media (max-width:1400px){ .hint{display:none} }
   @media (max-width:1350px){ .pal{display:none} .bottom{grid-template-columns:175px 1fr 250px 100px} }
   @media (max-width:1150px){ .simpanel{width:320px} .bottom{grid-template-columns:165px 1fr 230px 96px} .titlebar .s{display:none} }
-  /* CLI */
   .cli{border:1px solid #9aa4b1;background:#fff}
   .cli pre{margin:0;height:310px;overflow:auto;padding:8px 10px 0;font-family:var(--mono);font-size:12.5px;line-height:1.35;white-space:pre;color:#111;user-select:text}
   .cliin{display:flex;padding:0 10px 8px;font-family:var(--mono);font-size:12.5px;color:#111}
   .cliin input{flex:1;border:none;outline:none;font-family:var(--mono);font-size:12.5px;padding:0 0 0 2px;background:transparent}
-  /* Paleta de dispositivos */
   .pal{padding:4px 6px}
   .pal-cats{display:flex;gap:2px;margin-bottom:3px}
   .pal-cat{width:40px;height:34px;border:1px solid transparent;background:none;border-radius:3px;padding:0}
@@ -169,7 +161,6 @@
   .pal-foot{font-size:11px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   @keyframes devFlash{0%,100%{stroke-opacity:0}50%{stroke-opacity:1}}
   .dev.flash .hl{stroke:#2563eb;stroke-width:3;stroke-dasharray:none;animation:devFlash .4s 4}
-  /* Herramienta PDU simple */
   .ws.picking .dev{cursor:crosshair}
   .tool-hint{position:absolute;right:8px;top:6px;z-index:3;background:#1f2933;color:#fff;font-size:12px;padding:4px 10px;border-radius:3px;display:none}
   .tool-hint.on{display:block}
@@ -267,14 +258,12 @@
   </div>
 </div>
 
-<!-- Ventana de dispositivo -->
 <div class="win hidden" id="win" style="width:560px;left:calc(50% - 280px);top:90px">
   <div class="wt" data-drag="win"><span id="winTitle">Dispositivo</span><button class="wx" onclick="closeWin()">✕</button></div>
   <div class="wtabs" id="winTabs"></div>
   <div class="wbody" id="winBody"></div>
 </div>
 
-<!-- Ventana PDU -->
 <div class="win hidden" id="pdu" style="width:680px;left:calc(50% - 340px);top:70px">
   <div class="wt" data-drag="pdu"><span id="pduTitle">Información de la PDU</span><button class="wx" onclick="closePdu()">✕</button></div>
   <div class="wtabs" id="pduTabs"></div>
@@ -282,9 +271,6 @@
 </div>
 
 <script>
-// =====================================================================
-// TOPOLOGÍA
-// =====================================================================
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
@@ -308,7 +294,6 @@ const MAC = {cam1:'0060.5C11.0A11',cam2:'0060.5C11.0A12',cam3:'0060.5C11.0A13',s
   broker:'00D0.BA8E.1100',monitor:'0001.6432.5050',r1lan:'0030.F2A1.0001',r1wan:'0030.F2A1.0002',
   inet:'00E0.B0C4.6601',api:'0005.5E80.2020',phone:'(radio LTE)',sniffer:'0090.21AA.0024',sw:'0001.C7D2.1A00'};
 
-// [a, b, puerto en a, puerto en b, inalámbrico]
 const LINKS = [
   ['cam1','sw','Fa0','Fa0/1'], ['cam2','sw','Fa0','Fa0/2'], ['cam3','sw','Fa0','Fa0/3'],
   ['sirena','sw','Fa0','Fa0/4'], ['sniffer','sw','Fa0','Fa0/24'],
@@ -321,9 +306,6 @@ const C = { icmp:'#0ea5e9', connect:'#8b5cf6', connack:'#22c55e', publish:'#3b82
   alert:'#ef4444', lwt:'#f97316', qos2:'#a855f7', http:'#10b981', resp:'#86efac', push:'#ec4899',
   siren:'#dc2626', retx:'#f59e0b' };
 
-// =====================================================================
-// ESTADO
-// =====================================================================
 const S = {
   mode:'realtime', playing:true, speed:1, tls:false, delay:60, jitter:5, loss:0,
   autoTel:true, sound:false, muted:false, showIps:true,
@@ -355,9 +337,6 @@ initCams();
 const isOut = t => t < 33 || t > 37;
 const horaStr = () => { const s=S.clock; return [Math.floor(s/3600)%24, Math.floor(s/60)%60, s%60].map(n=>String(n).padStart(2,'0')).join(':'); };
 
-// =====================================================================
-// ÍCONOS
-// =====================================================================
 function icon(d){
   const B='#2f7bbf', BD='#1d4f7a';
   switch(d.type){
@@ -439,7 +418,6 @@ function drawLinks(){
     if (!up) line.setAttribute('stroke-dasharray','7 5');
     g.appendChild(line);
     if (l[4]) continue;
-    // luces de enlace (triángulos) en ambos extremos
     const dx=B.x-A.x, dy=B.y-A.y, len=Math.hypot(dx,dy), ux=dx/len, uy=dy/len;
     const ang = Math.atan2(dy,dx)*180/Math.PI;
     [[A, 1, 52], [B, -1, 52]].forEach(([P, dir, dist]) => {
@@ -449,12 +427,10 @@ function drawLinks(){
       t.setAttribute('transform',`translate(${x},${y}) rotate(${dir>0?ang:ang+180})`);
       t.setAttribute('fill', up ? '#16a34a' : '#dc2626');
       gl.appendChild(t);
-      // etiqueta del puerto
     });
   }
 }
 
-// ---- Arrastrar dispositivos / abrir ventana ----
 function svgPoint(evt){
   const svg=$('topo'), pt=svg.createSVGPoint(); pt.x=evt.clientX; pt.y=evt.clientY;
   return pt.matrixTransform(svg.getScreenCTM().inverse());
@@ -472,9 +448,6 @@ function attachDrag(el, id){
   });
 }
 
-// =====================================================================
-// MOTOR DE SIMULACIÓN (PDUs salto a salto)
-// =====================================================================
 function neighbors(n){ const r=[]; for (const l of LINKS){ if(l[0]===n) r.push(l[1]); else if(l[1]===n) r.push(l[0]); } return r; }
 function route(a,b){
   const prev={[a]:null}, q=[a];
@@ -583,7 +556,7 @@ function hop(p){
     if (busy===0){ layoutWaiting(); ui(); kick(); }
   };
   requestAnimationFrame(f);
-  setTimeout(done, dur+80); // por si la pestaña está en segundo plano
+  setTimeout(done, dur+80);
 }
 function markDrop(p){
   p.el.insertAdjacentHTML('beforeend','<path d="M-11 -11 L11 11 M11 -11 L-11 11" stroke="#dc2626" stroke-width="4"/>');
@@ -594,7 +567,6 @@ function markArrive(p){
   setTimeout(()=>p.el.remove(), S.mode==='realtime'?450:1100);
 }
 
-// Tablas aprendidas por los equipos intermedios
 function hdr(p, i){
   const a=p.path[i], b=p.path[i+1], seg=segOf(a,b);
   let k=i; while(p.path[k]==='sw') k--;
@@ -620,9 +592,6 @@ function onRouter(p){
   }
 }
 
-// =====================================================================
-// LISTA DE EVENTOS
-// =====================================================================
 const typeOf = p => p.proto==='MQTT' ? (p.tls?'TLS':'MQTT') : p.proto;
 const infoOf = p => {
   if (p.proto==='MQTT') return `${p.kind}${p.qos!=null && p.kind==='PUBLISH' ? ' Q'+p.qos : ''}${p.dup?' (DUP)':''}${p.lwt?' · LWT':''}`;
@@ -654,9 +623,6 @@ function buildFilters(){
   }
 }
 
-// =====================================================================
-// CONSTRUCTORES DE PDUs (MQTT / HTTPS / PUSH)
-// =====================================================================
 const eph = dev => 49152 + ([...dev].reduce((s,c)=>s+c.charCodeAt(0),0)*37)%9000;
 
 function mq(from, to, kind, o={}){
@@ -703,9 +669,6 @@ function push(from, to, title, body, o={}){
   return send(sp);
 }
 
-// =====================================================================
-// LÓGICA MQTT + ENDPOINTS
-// =====================================================================
 function publishFromCamera(id, forceQoS=null, flow=null){
   const cam=S.cams[id]; if(!cam.online) return;
   const out=isOut(cam.temp), qos = forceQoS ?? (out?1:0);
@@ -822,9 +785,6 @@ function toggleCable(id, flow=null){
   ui();
 }
 
-// =====================================================================
-// ESCENARIOS (guion de la diapositiva 13)
-// =====================================================================
 const SC = [
   {n:1,name:'Conexión CONNECT / CONNACK (usuario, clave y Last Will)',src:'Cámaras 1–3',dst:'Broker MQTT',type:'MQTT',color:C.connect,need:3,
    note:'Las 3 cámaras envían CONNECT con usuario/clave y Last Will configurado; el broker valida credenciales (ACL) y responde CONNACK.'},
@@ -887,11 +847,7 @@ function runSc(n){
   ui();
 }
 
-// =====================================================================
-// INTERFAZ: refresco general
-// =====================================================================
 function ui(){
-  // temperaturas en el lienzo
   [1,2,3].forEach(id=>{
     const c=S.cams[id], k=`cam${id}`, out=isOut(c.temp);
     const tt=$('tt-'+k), tb=$('tb-'+k);
@@ -904,19 +860,15 @@ function ui(){
     $('merc-'+k).setAttribute('fill',col); $('bulb-'+k).setAttribute('fill',col);
     $('merc-'+k).setAttribute('y', 6-h); $('merc-'+k).setAttribute('height', h);
   });
-  // sirena
   const dome=$('sirenDome'), halo=$('sirenHalo');
   if (dome){ dome.setAttribute('fill', S.siren ? '#ef4444' : '#94a3b8');
     halo.setAttribute('class', S.siren && !S.muted ? 'siren-halo' : ''); halo.setAttribute('opacity', S.siren && !S.muted ? '' : '0'); }
-  // celular
   const pb=$('pbadge'); if (pb){ pb.style.display = S.unread ? '' : 'none'; $('pbadgeT').textContent = S.unread>9?'9+':S.unread; }
-  // contadores
   $('cMsg').textContent=S.msgCount; $('cRetx').textContent=S.retx; $('cApi').textContent=S.apiCalls;
   $('cAl').textContent=Object.keys(S.alerts).length;
   $('simStat').textContent=`Tiempo de simulación: ${S.simTime.toFixed(3)} s · eventos: ${EVN} · PDUs en espera: ${S.pending.length+S.inflight.length}`;
   $('clock').textContent=`Sáb ${horaStr()}`;
   $('bNtfy').textContent=`Celular real (ntfy): ${S.ntfy.on?'ON':'OFF'}`; $('bNtfy').classList.toggle('on',S.ntfy.on); $('bNtfy').classList.toggle('good',S.ntfy.on);
-  // nota
   $('note').innerHTML = S.note ? `<b>ESCENARIO ${S.note.n}</b><span>${esc(S.note.note)}</span>` : `<b>MODO INTERACTIVO</b><span>${esc(DEFAULT_NOTE)}</span>`;
   renderSc();
   refreshWin();
@@ -929,9 +881,6 @@ function renderSc(){
     return `<tr><td><button class="fire" onclick="fireUserPdu('${u.key}')">Disparar</button></td><td class="${L[1]}">${L[0]}</td><td>${esc(DEV[u.src].name)}</td><td>${esc(DEV[u.dst].name)}</td><td>ICMP</td><td><span class="sq" style="background:${C.icmp}"></span></td><td class="nm">PDU simple ${u.key} · ping ${DEV[u.dst].ip} <button class="fire" onclick="delUserPdu('${u.key}')" title="Borrar">✕</button></td></tr>`; }).join('');
 }
 
-// =====================================================================
-// VENTANAS DE DISPOSITIVO
-// =====================================================================
 let WIN={id:null, tab:0};
 function openDev(id){ WIN={id,tab:0}; $('win').classList.remove('hidden'); if(id==='phone'){S.unread=0;} renderWin(); ui(); }
 function closeWin(){ WIN.id=null; $('win').classList.add('hidden'); }
@@ -939,7 +888,7 @@ function refreshWin(){
   if (!WIN.id) return;
   const ae=document.activeElement;
   if (ae && $('win').contains(ae) && ae.tagName==='INPUT') return;
-  if (isCliTab()) return; // la consola se actualiza sola
+  if (isCliTab()) return;
   if (WIN.id==='phone') S.unread=0;
   renderWin();
 }
@@ -1092,7 +1041,6 @@ TLSv1.3 Record Layer: Application Data
   }
   return '';
 }
-// ---- Celular real vía ntfy.sh ----
 function ntfySend(title, msg, bad, force){
   if (!S.ntfy.on && !force) return;
   S.ntfy.last = 'enviando…'; ui();
@@ -1117,7 +1065,6 @@ function phoneUrl(){
   const base = location.protocol==='file:' ? 'https://TU-DOMINIO/' : location.href.replace(/[?#].*$/,'').replace(/[^\/]*$/,'');
   return `${base}celular.html?t=${encodeURIComponent(S.ntfy.topic)}`;
 }
-// QR generado en el navegador (qrcodejs) y cacheado como imagen
 const QR={}; let qrLib=null;
 function qrImg(text){
   if (QR[text]) return `<img src="${QR[text]}" width="124" height="124" alt="QR">`;
@@ -1141,9 +1088,6 @@ function testGet(){
   ui();
 }
 
-// =====================================================================
-// PDU: modelo OSI y detalle de campos
-// =====================================================================
 function cipher(p, n=48){ let x=p.id*2654435761>>>0, out=[]; for(let i=0;i<n;i++){ x^=x<<13; x^=x>>>17; x^=x<<5; x>>>=0; out.push((x&255).toString(16).padStart(2,'0')); } return out.join(' '); }
 function wsDetail(c){
   const p=c.p, h=hdr(p, p.path.indexOf('sw')-1 >= 0 ? p.path.indexOf('sw')-1 : 0);
@@ -1247,16 +1191,12 @@ function fieldsView(ev){
   return html;
 }
 
-// =====================================================================
-// ICMP (ping) + PDU SIMPLE
-// =====================================================================
 function icmp(from, to, type, seq, o={}){
   return send({from,to,proto:'ICMP',tls:false,kind: type==='req'?'Echo Request':'Echo Reply',seq,
     payload:'abcdefghijklmnopqrstuvwabcdefghi', color:C.icmp, dscp:'BE (0)', qos:null, flow:o.flow,
     onArrive:o.onArrive, onLost:o.onLost, l7title:'ICMP', l7:[['Type',type==='req'?'8 (Echo Request)':'0 (Echo Reply)'],['Seq',String(seq)]]});
 }
 function ipToDev(ip){ for (const k in DEV){ if (DEV[k].ip===ip || DEV[k].wan===ip) return k; } return null; }
-// Un eco ida y vuelta: cb(ok, ttl, ms)
 function pingOnce(from, to, seq, cb){
   if (from===to){ setTimeout(()=>cb(true,128,0),50); return; }
   const t0=S.simTime;
@@ -1291,9 +1231,6 @@ function fireUserPdu(key){
 }
 function delUserPdu(key){ S.userPdus=S.userPdus.filter(x=>x.key!==key); delete S.sc[key]; ui(); }
 
-// =====================================================================
-// CLI (Switch0, R1) y símbolo del sistema (Monitor)
-// =====================================================================
 function cliState(dev){
   if (!S.cli[dev]){
     S.cli[dev] = {lines:[], priv:false, hist:[], hi:0};
@@ -1327,7 +1264,6 @@ function cliKey(e, dev){
   } else if (e.key==='ArrowUp'){ if(c.hi>0){ c.hi--; inp.value=c.hist[c.hi]; } e.preventDefault(); }
   else if (e.key==='ArrowDown'){ if(c.hi<c.hist.length-1){ c.hi++; inp.value=c.hist[c.hi]; } else { c.hi=c.hist.length; inp.value=''; } e.preventDefault(); }
 }
-// Coincidencia por prefijo, como IOS ("sh ip nat tr")
 function cmdIs(tok, pat){
   const P=pat.split(' ');
   if (tok.length<P.length) return false;
@@ -1446,9 +1382,6 @@ function pcExec(tok, out){
   out('Invalid Command.');
 }
 
-// =====================================================================
-// PALETA DE DISPOSITIVOS
-// =====================================================================
 const PAL = [
   {label:'Dispositivos de red', icon:'router', items:[
     {type:'router',label:'Routers',model:'ISR4331',ids:['r1']},
@@ -1489,9 +1422,6 @@ function palPick(j){
   renderPal();
 }
 
-// =====================================================================
-// CONTROLES
-// =====================================================================
 function setMode(m){
   S.mode=m; S.playing = (m==='realtime');
   $('mRT').classList.toggle('on',m==='realtime'); $('mSIM').classList.toggle('on',m==='simulation');
@@ -1526,7 +1456,6 @@ function updAuto(){
 }
 function toggleIps(){ S.showIps=!S.showIps; $('topo').classList.toggle('show-ip',S.showIps); $('bIps').classList.toggle('on',S.showIps); }
 
-// Audio de sirena (WebAudio, sin dependencias)
 let actx=null, osc=null, sirenIv=null;
 function sirenAudio(on){
   if (on){
@@ -1556,7 +1485,6 @@ function resetAll(){
   if (S.mode==='realtime') setTimeout(()=>publishAll(), 300);
 }
 
-// Ventanas arrastrables
 document.querySelectorAll('[data-drag]').forEach(bar=>{
   bar.addEventListener('pointerdown', e=>{
     if (e.target.closest('button')) return;
@@ -1573,9 +1501,6 @@ document.addEventListener('keydown', e=>{
   if (e.code==='Escape'){ if (S.pduTool){ S.pduTool=null; toolHint(''); return; } closePdu(); closeWin(); }
 });
 
-// =====================================================================
-// ARRANQUE
-// =====================================================================
 buildFilters();
 renderPal();
 drawDevices();

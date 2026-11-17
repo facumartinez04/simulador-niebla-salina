@@ -112,14 +112,12 @@ let topic = (qs.get('t') || store.get('topic') || '').trim();
 $('topic').value = topic;
 
 let es=null, actx=null, osc=null, gain=null, sirenIv=null, vibIv=null, stopTo=null, wake=null;
-const active = new Set();           // cámaras con alerta abierta
+const active = new Set();
 const items = [];
 
-// ---------- Audio ----------
 function unlockAudio(){
   actx = actx || new (window.AudioContext||window.webkitAudioContext)();
   if (actx.state==='suspended') actx.resume();
-  // un sonido inaudible para habilitar el audio en iOS
   const o=actx.createOscillator(), g=actx.createGain(); g.gain.value=0.0001; o.connect(g).connect(actx.destination); o.start(); o.stop(actx.currentTime+0.05);
 }
 function sirenOn(){
@@ -145,13 +143,11 @@ function chime(){
   if (navigator.vibrate) navigator.vibrate(150);
 }
 
-// ---------- Pantalla encendida ----------
 async function keepAwake(){
   try { if ('wakeLock' in navigator && document.visibilityState==='visible') wake = await navigator.wakeLock.request('screen'); } catch(e){}
 }
 document.addEventListener('visibilitychange', ()=>{ if (document.visibilityState==='visible' && es) keepAwake(); });
 
-// ---------- Conexión con ntfy (SSE) ----------
 function chip(state, txt){ $('chip').className='chip '+state; $('chipTxt').textContent=txt; }
 function connect(){
   if (es) es.close();
@@ -163,7 +159,6 @@ function connect(){
   es.onmessage = e => { try { const m=JSON.parse(e.data); if (m.event==='message') handle(m); } catch(err){} };
 }
 
-// ---------- Mensajes ----------
 const camOf = s => { const m=/C[aá]mara\s*(\d)/i.exec(s||''); return m ? m[1] : null; };
 function handle(m){
   const title = m.title || 'Alerta', msg = m.message || '';
@@ -201,7 +196,6 @@ function render(){
 }
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
-// ---------- Inicio ----------
 async function start(){
   const v = $('topic').value.trim().replace(/[^A-Za-z0-9_-]/g,'');
   if (!v){ $('topic').focus(); return; }

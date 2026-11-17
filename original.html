@@ -17,16 +17,14 @@
         .mono {
             font-family: 'JetBrains Mono', monospace;
         }
-        /* Grid background style NET-EMU */
         .canvas-grid {
             background-color: #0d1322;
-            background-image: 
+            background-image:
                 radial-gradient(rgba(56, 189, 248, 0.14) 1px, transparent 1px),
                 linear-gradient(to right, rgba(30, 41, 59, 0.35) 1px, transparent 1px),
                 linear-gradient(to bottom, rgba(30, 41, 59, 0.35) 1px, transparent 1px);
             background-size: 24px 24px, 96px 96px, 96px 96px;
         }
-        /* Siren pulse animation */
         @keyframes siren-flash {
             0%, 100% {
                 box-shadow: 0 0 15px rgba(239, 68, 68, 0.8), inset 0 0 15px rgba(239, 68, 68, 0.5);
@@ -42,7 +40,6 @@
         .siren-active {
             animation: siren-flash 0.65s infinite ease-in-out;
         }
-        /* Custom scrollbar */
         ::-webkit-scrollbar {
             width: 6px;
             height: 6px;
@@ -57,7 +54,6 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #475569;
         }
-        /* Range slider */
         input[type=range] {
             accent-color: #38bdf8;
         }
@@ -65,7 +61,6 @@
 </head>
 <body class="min-h-screen flex flex-col select-none">
 
-    <!-- BARRA SUPERIOR: ENCABEZADO ACADÉMICO + CONTROLES GLOBALES -->
     <header class="bg-slate-900/95 border-b border-slate-800 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-40 backdrop-blur">
         <div class="flex items-center gap-3">
             <div class="w-9 h-9 rounded-lg bg-sky-500/15 border border-sky-400/40 flex items-center justify-center text-sky-400 font-bold mono text-sm shadow-inner">
@@ -80,9 +75,7 @@
             </div>
         </div>
 
-        <!-- Controles principales de Simulación -->
         <div class="flex flex-wrap items-center gap-2">
-            <!-- Estado Simulación -->
             <div class="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-1 gap-1">
                 <button id="btnAutoPlay" onclick="toggleAutoPublish()" class="px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1.5 bg-emerald-600/25 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-600/40 transition">
                     <span id="autoPlayDot" class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
@@ -93,7 +86,6 @@
                 </button>
             </div>
 
-            <!-- Selector TLS 1883 / 8883 -->
             <div class="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-1">
                 <button id="btnPort1883" onclick="setSecurityMode(false)" class="px-2.5 py-1 rounded text-xs font-semibold mono transition bg-amber-500/20 text-amber-300 border border-amber-500/40">
                     🔓 TCP:1883 (Claro)
@@ -103,19 +95,16 @@
                 </button>
             </div>
 
-            <!-- Botón de Sonido de Sirena -->
             <button id="btnSound" onclick="toggleSound()" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 transition flex items-center gap-1.5">
                 <span id="soundIcon">🔊</span> <span id="soundText">Audio Sirena</span>
             </button>
 
-            <!-- Botón Reset -->
             <button onclick="resetFullDemo()" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 transition">
                 🔄 Reiniciar
             </button>
         </div>
     </header>
 
-    <!-- BARRA DE ESCENARIOS GUIADOS (LOS 5 PUNTOS DE LA DIAPOSITIVA 13) -->
     <section class="bg-slate-900/60 border-b border-slate-800/80 px-4 py-2 flex flex-wrap items-center justify-between gap-2">
         <div class="flex items-center gap-2">
             <span class="text-[11px] font-bold uppercase tracking-wider text-sky-400 mono">Guion Demo en Vivo (Diap. 13):</span>
@@ -139,7 +128,6 @@
         </div>
     </section>
 
-    <!-- BANNER EXPLICATIVO DEL ESCENARIO ACTUAL -->
     <div id="scenarioBanner" class="bg-sky-950/50 border-b border-sky-800/50 px-4 py-1.5 flex items-center justify-between text-xs">
         <div class="flex items-center gap-2">
             <span class="px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 font-bold mono text-[11px]" id="bannerStepTag">MODO INTERACTIVO</span>
@@ -148,25 +136,19 @@
         <span id="clockDisplay" class="mono text-slate-400 text-[11px] shrink-0 ml-2">Sáb 02:00:00</span>
     </div>
 
-    <!-- ÁREA PRINCIPAL: LIENZO DE TOPOLOGÍA DE RED CON ANIMACIÓN DE PAQUETES -->
     <main class="relative canvas-grid flex-1 min-h-[450px] p-4 flex flex-col justify-between overflow-hidden">
-        
-        <!-- SVG Overlay para cables de red y paquetes viajando -->
+
         <svg id="networkSvg" class="absolute inset-0 w-full h-full pointer-events-none z-10"></svg>
         <div id="packetsLayer" class="absolute inset-0 w-full h-full pointer-events-none z-20 overflow-hidden"></div>
 
-        <!-- GRILLA DE 4 COLUMNAS ARQUITECTURA IoT (Percepción -> Red -> Middleware -> Aplicación) -->
         <div class="relative z-30 grid grid-cols-1 lg:grid-cols-12 gap-4 items-center my-auto">
 
-            <!-- COLUMNA 1: CAPA 1 PERCEPCIÓN (3 CÁMARAS DE NIEBLA SALINA) -->
             <div class="lg:col-span-4 flex flex-col gap-3">
                 <div class="flex items-center justify-between px-1">
                     <span class="text-[11px] font-bold uppercase tracking-wider text-sky-400 mono">Capa 1 · Percepción (SBC-PT + Sonda)</span>
                     <span class="text-[10px] mono text-slate-400 bg-slate-900/90 px-2 py-0.5 rounded border border-slate-800">Tolerancia: 33.0–37.0 °C</span>
                 </div>
 
-                <!-- Tarjetas de las 3 cámaras generadas dinámicamente o fijas para precisión de enlaces -->
-                <!-- CÁMARA 1 -->
                 <div id="node-cam1" class="bg-slate-900/95 border border-slate-700/80 rounded-xl p-3 shadow-lg transition-all">
                     <div class="flex items-center justify-between mb-2">
                         <div class="flex items-center gap-2">
@@ -185,7 +167,6 @@
                             </div>
                         </div>
                     </div>
-                    <!-- Controles Cámara 1 -->
                     <div class="flex items-center gap-2 bg-slate-950/90 p-2 rounded-lg border border-slate-800/80">
                         <span class="text-[10px] mono text-slate-400">Temp:</span>
                         <input id="slider-cam1" type="range" min="28" max="43" step="0.1" value="35.2" oninput="updateCamTemp(1, this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg cursor-pointer">
@@ -198,7 +179,6 @@
                     </div>
                 </div>
 
-                <!-- CÁMARA 2 -->
                 <div id="node-cam2" class="bg-slate-900/95 border border-slate-700/80 rounded-xl p-3 shadow-lg transition-all">
                     <div class="flex items-center justify-between mb-2">
                         <div class="flex items-center gap-2">
@@ -217,7 +197,6 @@
                             </div>
                         </div>
                     </div>
-                    <!-- Controles Cámara 2 -->
                     <div class="flex items-center gap-2 bg-slate-950/90 p-2 rounded-lg border border-slate-800/80">
                         <span class="text-[10px] mono text-slate-400">Temp:</span>
                         <input id="slider-cam2" type="range" min="28" max="43" step="0.1" value="34.8" oninput="updateCamTemp(2, this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg cursor-pointer">
@@ -230,7 +209,6 @@
                     </div>
                 </div>
 
-                <!-- CÁMARA 3 -->
                 <div id="node-cam3" class="bg-slate-900/95 border border-slate-700/80 rounded-xl p-3 shadow-lg transition-all">
                     <div class="flex items-center justify-between mb-2">
                         <div class="flex items-center gap-2">
@@ -249,7 +227,6 @@
                             </div>
                         </div>
                     </div>
-                    <!-- Controles Cámara 3 -->
                     <div class="flex items-center gap-2 bg-slate-950/90 p-2 rounded-lg border border-slate-800/80">
                         <span class="text-[10px] mono text-slate-400">Temp:</span>
                         <input id="slider-cam3" type="range" min="28" max="43" step="0.1" value="35.1" oninput="updateCamTemp(3, this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg cursor-pointer">
@@ -263,7 +240,6 @@
                 </div>
             </div>
 
-            <!-- COLUMNA 2: CAPA 2 RED (SWITCH VLAN 10 IoT + PARÁMETROS QoS) -->
             <div class="lg:col-span-2 flex flex-col items-center justify-center gap-3">
                 <span class="text-[11px] font-bold uppercase tracking-wider text-indigo-400 mono">Capa 2 · Red Lab</span>
 
@@ -281,7 +257,6 @@
                 </div>
             </div>
 
-            <!-- COLUMNA 3: CAPA 3 MIDDLEWARE (BROKER MQTT MOSQUITTO) -->
             <div class="lg:col-span-3 flex flex-col items-center justify-center gap-3">
                 <span class="text-[11px] font-bold uppercase tracking-wider text-amber-400 mono">Capa 3 · Middleware</span>
 
@@ -301,7 +276,6 @@
                         </span>
                     </div>
 
-                    <!-- Tabla de Topics Retenidos (Retain) y Last Will en el Broker -->
                     <div class="bg-slate-950/90 rounded-lg p-2 border border-slate-800 text-[10px] mono space-y-1.5">
                         <div class="flex items-center justify-between text-slate-400 border-b border-slate-800 pb-1">
                             <span class="font-bold text-amber-300">📌 Tabla Retain + Estado LWT</span>
@@ -323,7 +297,6 @@
                         </div>
                     </div>
 
-                    <!-- Contador de Mensajes del Broker -->
                     <div class="mt-2 flex items-center justify-between text-[10px] mono text-slate-400 px-1">
                         <span>TX/RX: <strong id="broker-msg-count" class="text-white">0</strong> pkts</span>
                         <span>Retransmisiones TCP/QoS1: <strong id="broker-retx-count" class="text-amber-300">0</strong></span>
@@ -331,11 +304,9 @@
                 </div>
             </div>
 
-            <!-- COLUMNA 4: CAPA 4 APLICACIÓN (MONITOR DASHBOARD + SIRENA + BASE DE DATOS) -->
             <div class="lg:col-span-3 flex flex-col gap-3">
                 <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mono">Capa 4 · Aplicación (Suscriptores)</span>
 
-                <!-- MONITOR SUSCRIPTOR -->
                 <div id="node-monitor" class="bg-slate-900/95 border border-slate-700/90 rounded-xl p-3 shadow-lg">
                     <div class="flex items-center justify-between mb-2">
                         <div>
@@ -347,7 +318,6 @@
                         </span>
                     </div>
 
-                    <!-- Mini vista en vivo de suscripción -->
                     <div class="bg-slate-950 rounded-lg p-2 border border-slate-800 text-[10px] mono space-y-1">
                         <div class="text-slate-400 flex justify-between">
                             <span>Último Payload Recibido:</span>
@@ -360,7 +330,6 @@
                     </div>
                 </div>
 
-                <!-- SIRENA DE ALERTA LOCAL + CELULAR DEL RESPONSABLE -->
                 <div id="node-siren" class="bg-slate-900/95 border-2 border-slate-700/80 rounded-xl p-3 shadow-lg transition-all">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-2.5">
@@ -389,9 +358,7 @@
         </div>
     </main>
 
-    <!-- PANEL TÉCNICO INFERIOR: 3 PESTAÑAS (INSPECTOR DE PAQUETES / WIRESHARK TLS / QoS DE RED) -->
     <section class="bg-slate-950 border-t border-slate-800 h-72 flex flex-col">
-        <!-- Pestañas -->
         <div class="flex items-center justify-between bg-slate-900 px-4 border-b border-slate-800">
             <div class="flex items-center space-x-1">
                 <button id="tabBtn-packets" onclick="switchTab('packets')" class="px-4 py-2 text-xs font-bold border-b-2 border-sky-400 text-sky-400 bg-slate-950/60 flex items-center gap-1.5">
@@ -410,9 +377,7 @@
             </div>
         </div>
 
-        <!-- CONTENIDO PESTAÑA 1: CONSOLA DE PAQUETES + INSPECTOR DE CAPAS -->
         <div id="tabContent-packets" class="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
-            <!-- Tabla de paquetes en vivo -->
             <div class="lg:col-span-7 border-r border-slate-800 overflow-y-auto p-2">
                 <table class="w-full text-left border-collapse mono text-[11px]">
                     <thead>
@@ -425,12 +390,10 @@
                         </tr>
                     </thead>
                     <tbody id="packetTableBody" class="divide-y divide-slate-800/60">
-                        <!-- Filas dinámicas -->
                     </tbody>
                 </table>
             </div>
 
-            <!-- Inspector PDU Detallado (L2, L3, L4, L7 MQTT) -->
             <div class="lg:col-span-5 bg-slate-900/50 p-3 overflow-y-auto mono text-xs">
                 <div class="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-2">
                     <span class="font-bold text-sky-400">🔍 INSPECTOR DE PAQUETE (PDU DETAILS)</span>
@@ -457,9 +420,7 @@
             </div>
         </div>
 
-        <!-- CONTENIDO PESTAÑA 2: COMPARADOR WIRESHARK SIN TLS (1883) VS CON TLS (8883) -->
         <div id="tabContent-wireshark" class="hidden flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 p-4 overflow-y-auto bg-slate-950">
-            <!-- Sin TLS Puerto 1883 -->
             <div class="rounded-xl border border-rose-500/40 bg-slate-900/70 p-3 flex flex-col justify-between">
                 <div>
                     <div class="flex items-center justify-between mb-2">
@@ -478,7 +439,6 @@ MQTT Protocol (Header: 2 bytes)
                 </div>
             </div>
 
-            <!-- Con TLS Puerto 8883 -->
             <div class="rounded-xl border border-emerald-500/40 bg-slate-900/70 p-3 flex flex-col justify-between">
                 <div>
                     <div class="flex items-center justify-between mb-2">
@@ -496,9 +456,7 @@ Transport Layer Security (TLSv1.3 Record Layer: Application Data)
             </div>
         </div>
 
-        <!-- CONTENIDO PESTAÑA 3: SIMULADOR DE QoS DE RED (DIAPOSITIVA 10) -->
         <div id="tabContent-qos" class="hidden flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 p-4 overflow-y-auto bg-slate-950">
-            <!-- Retardo (Delay) -->
             <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-3">
                 <div class="flex justify-between items-center mb-1">
                     <span class="text-xs font-bold text-white">⏱️ Retardo (Delay)</span>
@@ -511,7 +469,6 @@ Transport Layer Security (TLSv1.3 Record Layer: Application Data)
                 </div>
             </div>
 
-            <!-- Jitter -->
             <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-3">
                 <div class="flex justify-between items-center mb-1">
                     <span class="text-xs font-bold text-white">〰️ Variación (Jitter)</span>
@@ -524,7 +481,6 @@ Transport Layer Security (TLSv1.3 Record Layer: Application Data)
                 </div>
             </div>
 
-            <!-- Pérdida de Paquetes (Packet Loss) -->
             <div class="bg-slate-900/80 border border-rose-500/40 rounded-xl p-3">
                 <div class="flex justify-between items-center mb-1">
                     <span class="text-xs font-bold text-white">❌ Pérdida de Paquetes</span>
@@ -540,12 +496,9 @@ Transport Layer Security (TLSv1.3 Record Layer: Application Data)
     </section>
 
     <script>
-        // =========================================================================
-        // ESTADO DEL SIMULADOR DE RED IoT & MQTT (GRUPO 4 - UAI)
-        // =========================================================================
         const state = {
             autoPublish: true,
-            tlsEnabled: false, // false = 1883, true = 8883
+            tlsEnabled: false,
             soundEnabled: false,
             sirenActive: false,
             simSeconds: 0,
@@ -566,9 +519,6 @@ Transport Layer Security (TLSv1.3 Record Layer: Application Data)
         let sirenSynth = null;
         let sirenLoop = null;
 
-        // =========================================================================
-        // DIBUJADO DE CABLES DE RED EN SVG Y ANIMACIÓN DE PAQUETES PDU
-        // =========================================================================
         function getCenterCoords(elementId) {
             const el = document.getElementById(elementId);
             const canvas = document.getElementById('networkSvg');
@@ -591,18 +541,14 @@ Transport Layer Security (TLSv1.3 Record Layer: Application Data)
             const monitor = getCenterCoords('node-monitor');
             const siren = getCenterCoords('node-siren');
 
-            //Enlaces desde las 3 cámaras al Switch
             [1, 2, 3].forEach(cid => {
                 const cam = getCenterCoords(`node-cam${cid}`);
                 const isOnline = state.cameras[cid].online;
                 createSvgLine(svg, cam.x, cam.y, sw.x, sw.y, isOnline ? '#334155' : '#ef4444', isOnline ? 'none' : '6,6');
             });
 
-            // Switch -> Broker
             createSvgLine(svg, sw.x, sw.y, broker.x, broker.y, '#475569', 'none', 2.5);
-            // Broker -> Monitor
             createSvgLine(svg, broker.x, broker.y, monitor.x, monitor.y, '#475569', 'none', 2.5);
-            // Monitor -> Sirena
             createSvgLine(svg, monitor.x, monitor.y, siren.x, siren.y, state.sirenActive ? '#ef4444' : '#334155', 'none', 2);
         }
 
@@ -618,7 +564,6 @@ Transport Layer Security (TLSv1.3 Record Layer: Application Data)
             svg.appendChild(line);
         }
 
-        // Animar una píldora PDU de un nodo a otro
         function animatePDU(fromNodeId, toNodeId, label, colorClass, durationMs = 650, onComplete = null) {
             const layer = document.getElementById('packetsLayer');
             if (!layer) return;
@@ -648,9 +593,6 @@ Transport Layer Security (TLSv1.3 Record Layer: Application Data)
             }, durationMs);
         }
 
-        // =========================================================================
-        // LÓGICA DE PROTOCOLO MQTT (PUBLISH, QoS 0/1/2, RETAIN Y LAST WILL)
-        // =========================================================================
         function formatSimTime() {
             state.simSeconds = (state.simSeconds + 4) % 3600;
             const mins = String(Math.floor(state.simSeconds / 60)).padStart(2, '0');
@@ -670,15 +612,12 @@ Transport Layer Security (TLSv1.3 Record Layer: Application Data)
             const topic = `lab/niebla/${cam.name}/temperatura`;
             const payload = `{"temp": ${cam.temp.toFixed(1)}, "hora": "${hora}"}`;
 
-            // Evaluar si hay pérdida de paquetes simulada en la red
             const dropped = Math.random() * 100 < state.netLossPct;
 
             if (dropped) {
-                // Paquete se pierde camino al Switch
                 animatePDU(`node-cam${camId}`, 'node-switch', `❌ DROP (Loss)`, 'bg-rose-950 text-rose-300 border-rose-500', 450, () => {
                     logPacket(cam.ip, '192.168.10.100', 'DROP (Pérdida)', `QoS ${qos}`, `Paquete perdido en red (${topic})`, payload, true);
                     if (qos >= 1) {
-                        // TCP + QoS 1 retransmite automáticamente para no perder la alerta
                         state.retxCount++;
                         document.getElementById('broker-retx-count').innerText = state.retxCount;
                         setTimeout(() => {
@@ -691,7 +630,6 @@ Transport Layer Security (TLSv1.3 Record Layer: Application Data)
                 return;
             }
 
-            // Envío normal Cam -> Switch -> Broker
             const pillColor = isOut
                 ? 'bg-rose-600 text-white border-rose-300'
                 : (state.tlsEnabled ? 'bg-emerald-600 text-white border-emerald-300' : 'bg-sky-500 text-slate-950 border-sky-200');
@@ -710,20 +648,17 @@ Transport Layer Security (TLSv1.3 Record Layer: Application Data)
             state.msgCount++;
             document.getElementById('broker-msg-count').innerText = state.msgCount;
 
-            // Actualizar tabla Retain del Broker
             const retainEl = document.getElementById(`retain-cam${cam.id}`);
             retainEl.innerText = `${cam.temp.toFixed(1)} °C (online)`;
             retainEl.className = isOut ? 'text-rose-400 font-bold' : 'text-emerald-300 font-semibold';
 
             logPacket(cam.ip, '192.168.10.100', 'PUBLISH', `QoS ${qos}`, topic, payload);
 
-            // Si es QoS 1, el Broker devuelve PUBACK a la cámara
             if (qos === 1) {
                 animatePDU('node-broker', `node-cam${cam.id}`, '✓ PUBACK', 'bg-amber-400 text-slate-950 border-amber-200', 480);
                 logPacket('192.168.10.100', cam.ip, 'PUBACK', 'QoS 1', `Confirmación de entrega (${cam.name})`, 'ACK Message ID');
             }
 
-            // El Broker distribuye a los suscriptores (Monitor)
             const distColor = isOut ? 'bg-rose-600 text-white border-rose-300' : 'bg-indigo-500 text-white border-indigo-300';
             animatePDU('node-broker', 'node-monitor', `MSG ${cam.temp.toFixed(1)}°C`, distColor, 420, () => {
                 updateMonitorDashboard(topic, payload, qos);
@@ -737,9 +672,6 @@ Transport Layer Security (TLSv1.3 Record Layer: Application Data)
             document.getElementById('monitor-qos-tag').innerText = `QoS ${qos} · Retain`;
         }
 
-        // =========================================================================
-        // EVALUACIÓN DE TOLERANCIA (33 a 37 °C) Y LAST WILL -> SIRENA
-        // =========================================================================
         function evaluateAlarmState() {
             let motivos = [];
             [1, 2, 3].forEach(id => {
@@ -783,9 +715,6 @@ Transport Layer Security (TLSv1.3 Record Layer: Application Data)
             triggerSirenAudio(false);
         }
 
-        // =========================================================================
-        // CONTROLES DE TEMPERATURA Y CORTE DE CABLE (LAST WILL)
-        // =========================================================================
         function updateCamTemp(camId, val) {
             const num = parseFloat(val);
             state.cameras[camId].temp = num;
@@ -817,7 +746,6 @@ Transport Layer Security (TLSv1.3 Record Layer: Application Data)
             const retainEl = document.getElementById(`retain-cam${camId}`);
 
             if (!cam.online) {
-                // Sensor desconectado de golpe -> Broker dispara Last Will
                 led.className = 'w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e]';
                 btn.innerText = '🔌 Reconectar';
                 btn.className = 'px-2 py-0.5 rounded bg-rose-600 text-white text-[10px] mono shrink-0';
@@ -834,7 +762,6 @@ Transport Layer Security (TLSv1.3 Record Layer: Application Data)
                     evaluateAlarmState();
                 });
             } else {
-                // Reconexión del sensor
                 led.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]';
                 btn.innerText = '🔌 Cortar';
                 btn.className = 'px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px] mono shrink-0';
@@ -848,9 +775,6 @@ Transport Layer Security (TLSv1.3 Record Layer: Application Data)
             drawNetworkCables();
         }
 
-        // =========================================================================
-        // LOS 5 ESCENARIOS GUIADOS DE LA DIAPOSITIVA 13
-        // =========================================================================
         function setBanner(tag, text) {
             document.getElementById('bannerStepTag').innerText = tag;
             document.getElementById('bannerStepText').innerText = text;
@@ -919,9 +843,6 @@ Transport Layer Security (TLSv1.3 Record Layer: Application Data)
             }
         }
 
-        // =========================================================================
-        // CONSOLA DE PAQUETES E INSPECTOR DE CAPAS OSI
-        // =========================================================================
         function logPacket(src, dst, type, qos, topic, payload, isError = false) {
             const hora = document.getElementById('clockDisplay').innerText.replace('Sáb ', '');
             const pkt = {
@@ -977,9 +898,6 @@ Transport Layer Security (TLSv1.3 Record Layer: Application Data)
             renderPacketTable();
         }
 
-        // =========================================================================
-        // SEGURIDAD (1883 VS 8883 TLS), PESTAÑAS Y QoS DE RED
-        // =========================================================================
         function setSecurityMode(enableTls) {
             state.tlsEnabled = enableTls;
             const b1883 = document.getElementById('btnPort1883');
@@ -1026,9 +944,6 @@ Transport Layer Security (TLSv1.3 Record Layer: Application Data)
             swLoss.className = state.netLossPct > 0 ? 'text-rose-400 font-bold' : 'text-emerald-400';
         }
 
-        // =========================================================================
-        // AUDIO SINTETIZADO DE SIRENA (TONE.JS) Y CICLO AUTOMÁTICO
-        // =========================================================================
         async function toggleSound() {
             await Tone.start();
             state.soundEnabled = !state.soundEnabled;
@@ -1095,15 +1010,12 @@ Transport Layer Security (TLSv1.3 Record Layer: Application Data)
             runScenario(2);
         }
 
-        // Inicialización al cargar la ventana
         window.onload = function () {
             drawNetworkCables();
             window.addEventListener('resize', drawNetworkCables);
 
-            // Primera publicación inicial
             setTimeout(() => stepManualPublish(), 400);
 
-            // Loop de telemetría periódica cada 4 segundos
             autoTimer = setInterval(() => {
                 if (state.autoPublish) {
                     stepManualPublish();

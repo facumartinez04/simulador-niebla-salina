@@ -1,4 +1,3 @@
-// Service worker de la web app del celular: permite instalarla y mostrar notificaciones.
 const CACHE = 'alertas-lab-v1';
 const FILES = ['celular.html', 'manifest.json', 'icon-192.png', 'icon-512.png'];
 
@@ -8,7 +7,6 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
-// Red primero; si no hay conexión, lo guardado (solo archivos propios)
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
